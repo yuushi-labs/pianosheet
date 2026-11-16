@@ -33,3 +33,10 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Gradle / Android build output
+build/
+app/build/
+app/.cxx/
+.kotlin/
+local.properties
