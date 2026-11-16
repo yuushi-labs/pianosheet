@@ -1,6 +1,7 @@
 package com.yuushilabs.pianosheet.core.dsp
 
 import kotlin.math.max
+import kotlin.math.pow
 
 /**
  * Chunk-in / chunk-out denoiser for the live transcription path (spec §20.5).
@@ -30,6 +31,8 @@ class StreamingDenoiser(private val config: DenoiseConfig = DenoiseConfig()) {
     private var emitted = 0L
     private var previousGains = DoubleArray(config.nBins) { 1.0 }
     private var floorTracker = FloorTracker(config.nBins)
+    private var toneTracker = ToneNoiseTracker(config.sampleRate, config.frameSize, maxCount = config.toneNotchMaxCount)
+    private val activeToneBins = ArrayList<Int>()
     private var out = FloatArray(0)
     private var outLength = 0
     private var fadeLength = 0
@@ -57,6 +60,8 @@ class StreamingDenoiser(private val config: DenoiseConfig = DenoiseConfig()) {
         emitted = 0L
         previousGains = DoubleArray(config.nBins) { 1.0 }
         floorTracker = FloorTracker(config.nBins)
+        toneTracker = ToneNoiseTracker(config.sampleRate, config.frameSize, maxCount = config.toneNotchMaxCount)
+        activeToneBins.clear()
         out = FloatArray(0)
         outLength = 0
         fadeLength = Math.round(DenoiseMath.FADE_IN_MS * config.sampleRate / 1000.0).toInt()
@@ -107,6 +112,20 @@ class StreamingDenoiser(private val config: DenoiseConfig = DenoiseConfig()) {
             kotlin.math.sqrt(specRe[bin] * specRe[bin] + specIm[bin] * specIm[bin])
         }
         val noise = floorTracker.push(magnitude)
+        // Once about half a second of audio agrees on a stationary tone, the rest
+        // of the take is notched there too; the live staff stops receiving ghost
+        // high notes from it.
+        if (config.toneNotchEnabled) {
+            val tones = toneTracker.push(magnitude)
+            if (tones.isNotEmpty()) {
+                val binHz = config.sampleRate.toDouble() / config.frameSize
+                for (tone in tones) {
+                    val centre = Math.round(tone.frequencyHz / binHz).toInt()
+                    if (activeToneBins.any { kotlin.math.abs(it - centre) <= config.toneNotchHalfWidthBins }) continue
+                    activeToneBins.add(centre)
+                }
+            }
+        }
         val target = DenoiseMath.subtractGains(magnitude, noise, params)
         val smoothed = DoubleArray(config.nBins) { bin ->
             params.gainSmoothing * previousGains[bin] + (1.0 - params.gainSmoothing) * target[bin]
@@ -114,8 +133,11 @@ class StreamingDenoiser(private val config: DenoiseConfig = DenoiseConfig()) {
         previousGains = smoothed
         val clamped = DoubleArray(config.nBins) { bin -> smoothed[bin].coerceIn(0.0, 1.0) }
         val smoothedAcrossBins = DenoiseMath.smooth3(clamped)
+        val bins = toneBins()
+        val toneGain = 10.0.pow(config.toneNotchGainDb / 20.0)
         val gains = DoubleArray(config.nBins) { bin ->
-            if (subtractMask[bin]) smoothedAcrossBins[bin] else 1.0
+            val base = if (subtractMask[bin]) smoothedAcrossBins[bin] else 1.0
+            if (bins[bin]) minOf(base, toneGain) else base
         }
         for (bin in 0 until config.nBins) {
             specRe[bin] *= gains[bin]
@@ -123,6 +145,18 @@ class StreamingDenoiser(private val config: DenoiseConfig = DenoiseConfig()) {
         }
         val cleaned = Fft.irfft(specRe, specIm, config.frameSize)
         writeFrame(cleaned)
+    }
+
+    /** Bins covered by whichever stationary tones have been locked so far. */
+    private fun toneBins(): BooleanArray {
+        val mask = BooleanArray(config.nBins)
+        if (!config.toneNotchEnabled) return mask
+        for (centre in activeToneBins) {
+            for (bin in centre - config.toneNotchHalfWidthBins..centre + config.toneNotchHalfWidthBins) {
+                if (bin in 0 until config.nBins) mask[bin] = true
+            }
+        }
+        return mask
     }
 
     private fun writeFrame(cleaned: DoubleArray) {

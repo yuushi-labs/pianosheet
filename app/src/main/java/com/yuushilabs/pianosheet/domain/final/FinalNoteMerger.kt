@@ -17,11 +17,33 @@ object FinalNoteMerger {
 
     data class WindowResult(val windowStartS: Double, val windowEndS: Double, val detections: List<Detection>)
 
+    data class MergeResult(
+        val notes: List<NoteEvent>,
+        /** Notes removed because they were a weak octave/twelfth above a stronger note. */
+        val overtoneDropped: Int,
+        /** Notes removed because they lasted less than [MIN_DURATION_MS]. */
+        val shortDropped: Int,
+    )
+
+    /** A note shorter than this is a click of the model, not a key. */
+    const val MIN_DURATION_MS = 80.0
+
+    /** Same intervals as the detector-side filter: one note and its upper partials. */
+    val OVERTONE_INTERVALS = listOf(12, 19, 24, 28, 31, 36)
+    const val OVERTONE_WINDOW_MS = 60.0
+    const val OVERTONE_CONFIDENCE_RATIO = 0.55
+
     fun merge(
         windows: List<WindowResult>,
         toleranceMs: Double = 80.0,
         edgeGuardS: Double = 0.02,
-    ): List<NoteEvent> {
+    ): List<NoteEvent> = mergeDetailed(windows, toleranceMs, edgeGuardS).notes
+
+    fun mergeDetailed(
+        windows: List<WindowResult>,
+        toleranceMs: Double = 80.0,
+        edgeGuardS: Double = 0.02,
+    ): MergeResult {
         val candidates = ArrayList<Detection>(windows.sumOf { it.detections.size })
         for ((windowIndex, window) in windows.withIndex()) {
             for (detection in window.detections) {
@@ -42,12 +64,23 @@ object FinalNoteMerger {
             var existingIndex = -1
             for (position in recent.indices.reversed()) {
                 val index = recent[position]
-                if (abs(merged[index].onsetMs - onsetMs) <= toleranceMs) {
+                val existing = merged[index]
+                val existingEnd = existing.onsetMs + (existing.durationMs ?: 0.0)
+                // Same detection seen from two windows, quantised a frame or two apart.
+                if (abs(existing.onsetMs - onsetMs) <= toleranceMs) {
                     existingIndex = index
                     break
                 }
-                // Sorted by onset: once the gap is beyond the tolerance, older notes are too.
-                if (merged[index].onsetMs < onsetMs - toleranceMs) break
+                // A copy that starts inside the first half of the note is the same
+                // note too: neighbouring windows often place its start tens of
+                // milliseconds apart and the old rule counted it twice.
+                if (onsetMs > existing.onsetMs && onsetMs < existing.onsetMs + 0.5 * (existingEnd - existing.onsetMs)) {
+                    existingIndex = index
+                    break
+                }
+                // Sorted by onset: once this note ends before the new one starts,
+                // every older note does too.
+                if (existingEnd <= onsetMs) break
             }
             if (existingIndex < 0) {
                 merged.add(
@@ -77,6 +110,45 @@ object FinalNoteMerger {
         }
         merged.sortWith(compareBy({ it.onsetMs }, { it.pitchMidi }))
         merged.forEachIndexed { index, note -> note.sequence = index }
-        return merged
+        return suppressGhosts(merged)
+    }
+
+    /**
+     * After the windows have been merged, remove the two kinds of note that are
+     * left: blips the model produced once, and notes that are an upper partial of
+     * a stronger note starting at the same instant.  Octaves are common in real
+     * music, so the overtone case needs *both* a simultaneous stronger lower note
+     * and a clearly weaker upper one.
+     */
+    fun suppressGhosts(notes: List<NoteEvent>): MergeResult {
+        var shortDropped = 0
+        val longEnough = ArrayList<NoteEvent>(notes.size)
+        for (note in notes) {
+            if ((note.durationMs ?: 0.0) < MIN_DURATION_MS) {
+                shortDropped += 1
+                continue
+            }
+            longEnough.add(note)
+        }
+
+        var overtoneDropped = 0
+        val kept = ArrayList<NoteEvent>(longEnough.size)
+        for (note in longEnough) {
+            val ghost = longEnough.any { lower ->
+                lower !== note &&
+                    lower.pitchMidi < note.pitchMidi &&
+                    abs(lower.onsetMs - note.onsetMs) <= OVERTONE_WINDOW_MS &&
+                    (note.pitchMidi - lower.pitchMidi) in OVERTONE_INTERVALS &&
+                    lower.confidence >= 0.35f &&
+                    note.confidence < OVERTONE_CONFIDENCE_RATIO * lower.confidence
+            }
+            if (ghost) {
+                overtoneDropped += 1
+            } else {
+                kept.add(note)
+            }
+        }
+        kept.forEachIndexed { index, note -> note.sequence = index }
+        return MergeResult(kept, overtoneDropped, shortDropped)
     }
 }

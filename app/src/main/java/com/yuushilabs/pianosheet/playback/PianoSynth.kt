@@ -27,11 +27,42 @@ object PianoSynth {
     /** Highest output sample value, leaving headroom before 16-bit conversion. */
     const val PEAK = 0.95f
 
+    /** Above this level the limiter bends the waveform instead of cutting it off. */
+    const val KNEE = 0.70f
+
+    /**
+     * Harmonics above this frequency are rolled off.  Without it a C7 sounds like
+     * a whistle: its 2nd–6th partials sit at 4–12 kHz at full level, which is what
+     * the user heard as "耳障りな高音キンキン音".
+     */
+    const val HIGH_ROLLOFF_HZ = 2400.0
+
     fun frequency(midiPitch: Double): Double = 440.0 * 2.0.pow((midiPitch - 69.0) / 12.0)
 
-    fun partialAmplitude(partial: Int): Double = 1.0 / partial.toDouble().pow(1.55)
+    /**
+     * Level of [partial] of a note at [midiPitch].
+     *
+     * Two things make the high register behave like a piano instead of an organ:
+     * the spectrum of a high note is *relatively poor* in upper partials (a short,
+     * stiff string cannot support them), and everything above [HIGH_ROLLOFF_HZ] is
+     * damped.  The low register keeps the bright, slightly detuned spectrum that
+     * makes a piano read as a piano.
+     */
+    fun partialAmplitude(partial: Int, midiPitch: Int = 60): Double {
+        if (partial < 1) return 0.0
+        val base = 1.0 / partial.toDouble().pow(1.55)
+        val octavesAboveMiddleC = ((midiPitch - 60).coerceAtLeast(0)) / 12.0
+        val spectralTilt = 1.0 / (1.0 + 0.55 * octavesAboveMiddleC * (partial - 1))
+        val frequency = frequency(midiPitch.toDouble()) * partial
+        val rolloff = 1.0 / (1.0 + (frequency / HIGH_ROLLOFF_HZ).pow(2))
+        return base * spectralTilt * rolloff
+    }
 
-    fun partialDecay(partial: Int): Double = BASE_DECAY_SEC / sqrt(partial.toDouble())
+    fun partialDecay(partial: Int, midiPitch: Int = 60): Double {
+        // Higher strings die faster, and a high note is mostly its fundamental.
+        val octavesAboveMiddleC = ((midiPitch - 60).coerceAtLeast(0)) / 12.0
+        return BASE_DECAY_SEC / (sqrt(partial.toDouble()) * (1.0 + 0.35 * octavesAboveMiddleC))
+    }
 
     /**
      * Adds one note to [out], starting at [startSample].
@@ -55,12 +86,13 @@ object PianoSynth {
         val total = gate + RELEASE_SEC
         val sampleCount = (total * sampleRate).toInt().coerceAtMost(out.size - startSample)
         if (sampleCount <= 0) return
-        val gain = velocity.coerceIn(0.02f, 1f) * 0.22f
+        val gain = velocity.coerceIn(0.02f, 1f) * 0.22f * registerGain(midiPitch)
         for (partial in 1..PARTIALS) {
             val frequencyPartial = base * partial * (1.0 + 0.00035 * partial * partial)
             if (frequencyPartial >= nyquist * 0.95) break
-            val amplitude = partialAmplitude(partial) * gain
-            val decay = partialDecay(partial)
+            val amplitude = partialAmplitude(partial, midiPitch) * gain
+            if (amplitude <= 0.0) continue
+            val decay = partialDecay(partial, midiPitch)
             val omega = 2.0 * PI * frequencyPartial / sampleRate
             for (i in 0 until sampleCount) {
                 val t = i.toDouble() / sampleRate
@@ -77,10 +109,28 @@ object PianoSynth {
     fun finish(buffer: FloatArray): FloatArray {
         var peak = 0f
         for (value in buffer) peak = maxOf(peak, abs(value))
-        val scale = if (peak > PEAK) PEAK / peak else 1f
-        if (scale == 1f) return buffer
-        for (i in buffer.indices) buffer[i] *= scale
+        if (peak <= KNEE) return buffer
+        for (i in buffer.indices) buffer[i] = softLimit(buffer[i])
         return buffer
+    }
+
+    /**
+     * Linear up to [KNEE], then a tanh bend towards [PEAK].  Ten notes struck at
+     * once stay inside full scale without being turned down as a whole, so the
+     * quiet part of the same chord keeps its level.
+     */
+    fun softLimit(value: Float): Float {
+        val magnitude = abs(value)
+        if (magnitude <= KNEE) return value
+        val headroom = (PEAK - KNEE).toDouble()
+        val bent = KNEE + headroom * kotlin.math.tanh((magnitude - KNEE) / headroom)
+        return if (value < 0f) -bent.toFloat() else bent.toFloat()
+    }
+
+    /** High notes are quieter on a real piano; keep them audible but not thin. */
+    fun registerGain(midiPitch: Int): Float {
+        val octaves = ((midiPitch - 60).coerceAtLeast(0)) / 12.0
+        return (1.0 + 0.16 * octaves).toFloat()
     }
 
     /**

@@ -41,6 +41,19 @@ data class DenoiseConfig(
     val notchHz: Double? = null,
     val notchQ: Double = 30.0,
     val minSubtractHz: Double = 150.0,
+    /**
+     * Narrow notches for stationary tones the device or the room leaves in the
+     * take (a high whistle; see [ToneNoiseDetector]).  Detected per recording, so
+     * this is a switch, not a frequency.
+     */
+    val toneNotchEnabled: Boolean = true,
+    /** Depth of the narrow suppression: enough to silence a whistle, not a note. */
+    val toneNotchGainDb: Double = -18.0,
+    /** Bins either side of the tone that are suppressed (±2 ≈ ±43 Hz). */
+    val toneNotchHalfWidthBins: Int = 2,
+    val toneNotchMaxCount: Int = ToneNoiseDetector.MAX_NOTCHES,
+    /** Frequencies already measured by the caller; null means "detect inside". */
+    val toneNotchesHz: List<Double>? = null,
     val frameSize: Int = 1024,
     val hopSize: Int = 256,
     val sampleRate: Int = 22050,
@@ -60,10 +73,14 @@ data class DenoiseConfig(
         return BooleanArray(nBins) { bin -> bin * binHz >= minSubtractHz }
     }
 
-    fun describeProfile(): String {
+    fun describeProfile(toneNotchesHz: List<Double> = this.toneNotchesHz ?: emptyList()): String {
         if (!enabled) return "off"
-        val base = strength.wireName
-        val notch = notchHz?.let { "notch${it.toInt()}" }
-        return if (notch == null) base else "$base+$notch"
+        val parts = ArrayList<String>(3)
+        parts.add(strength.wireName)
+        notchHz?.let { parts.add("notch${it.toInt()}") }
+        if (toneNotchEnabled && toneNotchesHz.isNotEmpty()) {
+            parts.add("tone" + toneNotchesHz.joinToString(",") { it.toInt().toString() })
+        }
+        return parts.joinToString("+")
     }
 }

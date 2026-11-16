@@ -44,6 +44,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 
 ### Phase 2 の実装範囲
 
+- **採譜候補の物理チェック（`NoteCandidateFilter`）**: 減衰尾の再報告（onset < 0.20）、80ms未満のクリック、C6以上の弱い検出、同時に鳴る強い下の音のオクターブ/12度上の倍音ゴーストを落とす。窓統合後にも `FinalNoteMerger.suppressGhosts()` で同じ検査を行う。詳細は [docs/phase2-1-report.md](docs/phase2-1-report.md)。
 - **最終解析（`domain/final`）**: 保存済みの無加工 WAV を読み直し（`WavFileReader`）、22.05kHz へ統一（`AudioResampler`）→ 設定に応じたノイズ除去（既定 standard＋25Hz ハイパス、ハムは自動判定可）→ Basic Pitch ONNX で全体を 2秒窓・1秒ホップで再解析 → 窓間の重複を統合（`FinalNoteMerger`）。
   - `TempoEstimator`: 発音間隔とグリッド整合度から BPM を推定（倍/半分テンポの曖昧さは 70〜150 BPM を優先して解決）。
   - `TimeSignatureEstimator`: 拍ごとのアクセント比から 4/4・3/4・2/4・6/8 を推定（6/8 は中間アクセントで 3/4 と区別）。

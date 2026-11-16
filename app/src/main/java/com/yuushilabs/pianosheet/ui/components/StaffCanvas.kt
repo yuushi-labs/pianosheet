@@ -23,8 +23,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.yuushilabs.pianosheet.ui.theme.rememberScorePalette
 import com.yuushilabs.pianosheet.domain.live.LiveStaffLayoutEngine
 import com.yuushilabs.pianosheet.domain.model.NoteEvent
 import com.yuushilabs.pianosheet.domain.model.Pitch
@@ -47,6 +49,7 @@ fun StaffCanvas(
     onFollowConsumed: () -> Unit = {},
 ) {
     val density = LocalDensity.current
+    val palette = rememberScorePalette()
     val headerWidth = 46.dp
     val staffHeight = 236.dp
     val lineGap = 10.5f.dp
@@ -79,8 +82,11 @@ fun StaffCanvas(
             }
         }
 
-        val ink = Color(0xFF1C1B1F)
-        val provisional = Color(0xFF6A4FB6)
+        // Theme colours: the staff used fixed black before, which vanished on the
+        // dark background of the live screen.
+        val ink = palette.ink
+        val staffLine = palette.staff
+        val provisional = palette.accent
 
         Box(
             modifier = Modifier
@@ -103,11 +109,11 @@ fun StaffCanvas(
 
                 fun lineY(top: Float, index: Int): Float = top + index * gapPx
 
-                for (staff in 0..1) {
-                    val top = if (staff == 0) trebleTop else bassTop
+                for (staffIndex in 0..1) {
+                    val top = if (staffIndex == 0) trebleTop else bassTop
                     for (index in 0..4) {
                         drawLine(
-                            color = ink,
+                            color = staffLine,
                             start = Offset(0f, lineY(top, index)),
                             end = Offset(size.width, lineY(top, index)),
                             strokeWidth = stroke.width,
@@ -116,14 +122,14 @@ fun StaffCanvas(
                 }
 
                 val clefPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb(255, 28, 27, 31)
+                    color = ink.toArgb()
                     textSize = 4.6f * gapPx
                     textAlign = android.graphics.Paint.Align.CENTER
                     typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.NORMAL)
                     isAntiAlias = true
                 }
                 val labelPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb(150, 90, 90, 100)
+                    color = palette.label.toArgb()
                     textSize = with(density) { 9.dp.toPx() }
                     textAlign = android.graphics.Paint.Align.CENTER
                     isAntiAlias = true
@@ -140,7 +146,7 @@ fun StaffCanvas(
                     for (ledger in StaffNotation.ledgerSteps(step)) {
                         val ledgerY = bottomLine - ledger * halfGap
                         drawLine(
-                            color = ink,
+                            color = staffLine,
                             start = Offset(x - gapPx * 0.85f, ledgerY),
                             end = Offset(x + gapPx * 0.85f, ledgerY),
                             strokeWidth = stroke.width,
@@ -167,7 +173,7 @@ fun StaffCanvas(
 
                     Pitch.provisionalAccidental(note.pitchMidi)?.let { accidental ->
                         clefPaint.textSize = gapPx * 1.4f
-                        clefPaint.color = android.graphics.Color.argb(220, 106, 79, 182)
+                        clefPaint.color = provisional.toArgb()
                         drawContext.canvas.nativeCanvas.drawText(
                             accidental,
                             x - headWidth,
@@ -175,7 +181,7 @@ fun StaffCanvas(
                             clefPaint,
                         )
                         clefPaint.textSize = 4.6f * gapPx
-                        clefPaint.color = android.graphics.Color.argb(255, 28, 27, 31)
+                        clefPaint.color = ink.toArgb()
                     }
 
                     if (Pitch.isBlackKey(note.pitchMidi)) {
@@ -212,11 +218,11 @@ fun StaffCanvas(
             val bassTop = trebleTop + 4 * gapPx + with(density) { 44.dp.toPx() }
             val stroke = Stroke(width = with(density) { 1.1.dp.toPx() })
 
-            for (staff in 0..1) {
-                val top = if (staff == 0) trebleTop else bassTop
+            for (staffIndex in 0..1) {
+                val top = if (staffIndex == 0) trebleTop else bassTop
                 for (index in 0..4) {
                     drawLine(
-                        color = ink,
+                        color = staffLine,
                         start = Offset(size.width - 6f, top + index * gapPx),
                         end = Offset(size.width, top + index * gapPx),
                         strokeWidth = stroke.width,
@@ -229,10 +235,10 @@ fun StaffCanvas(
                 cubicTo(16f, trebleTop + 30f, -2f, (trebleTop + bassTop + 4 * gapPx) / 2 - 20f, 8f, (trebleTop + bassTop + 4 * gapPx) / 2)
                 cubicTo(-2f, (trebleTop + bassTop + 4 * gapPx) / 2 + 20f, 16f, bassTop + 4 * gapPx - 30f, 4f, bassTop + 4 * gapPx)
             }
-            drawPath(brace, color = ink, style = Stroke(width = with(density) { 1.6.dp.toPx() }))
+            drawPath(brace, color = staffLine, style = Stroke(width = with(density) { 1.6.dp.toPx() }))
 
             val clefPaint = android.graphics.Paint().apply {
-                color = android.graphics.Color.argb(255, 28, 27, 31)
+                color = ink.toArgb()
                 textSize = 4.2f * gapPx
                 textAlign = android.graphics.Paint.Align.CENTER
                 typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.NORMAL)

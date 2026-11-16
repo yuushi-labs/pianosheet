@@ -28,8 +28,8 @@ data class ScoreBuildOptions(
     val quantization: QuantizationSettings = QuantizationSettings(),
     val minTempoBpm: Double = 50.0,
     val maxTempoBpm: Double = 200.0,
-    /** Ignore blips shorter than this. */
-    val minNoteSec: Double = 0.06,
+    /** Ignore blips shorter than this (the user called out anything under 80 ms). */
+    val minNoteSec: Double = 0.08,
     val maxMeasures: Int = 400,
 )
 

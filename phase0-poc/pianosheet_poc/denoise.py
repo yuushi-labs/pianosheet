@@ -69,6 +69,10 @@ class SubtractiveParams:
     gain_smoothing: float  # 0..1, larger = smoother gains over time (less "musical noise")
 
 
+# Stationary-tone suppression depth (mirrors DenoiseConfig.toneNotchGainDb).
+TONE_NOTCH_GAIN_DB = -18.0
+TONE_NOTCH_GAIN = 10.0 ** (TONE_NOTCH_GAIN_DB / 20.0)
+
 PRESETS: Dict[str, SubtractiveParams] = {
     # gentle: only the clearly-stationary part of the floor is removed
     "weak": SubtractiveParams(oversubtraction=0.7, floor_db=-8.0, gain_smoothing=0.60),
@@ -419,10 +423,16 @@ class Denoiser:
         return out[:length].astype(np.float32)
 
     # -- public -------------------------------------------------------------
-    def process(self, audio: np.ndarray) -> np.ndarray:
-        return self.process_with_stats(audio)[0]
+    def process(self, audio: np.ndarray, tone_mask: Optional[np.ndarray] = None) -> np.ndarray:
+        return self.process_with_stats(audio, tone_mask=tone_mask)[0]
 
-    def process_with_stats(self, audio: np.ndarray) -> Tuple[np.ndarray, DenoiseStats]:
+    def process_with_stats(
+        self, audio: np.ndarray, tone_mask: Optional[np.ndarray] = None
+    ) -> Tuple[np.ndarray, DenoiseStats]:
+        """`tone_mask`: bins of a stationary tone to hold down (see the Kotlin
+        Denoiser.toneMask / ToneNoiseDetector).  A steady high whistle is not
+        "between the partials" so the statistical floor keeps it; this mask takes
+        those few bins down by TONE_NOTCH_GAIN_DB regardless."""
         import time
 
         cfg = self.config
@@ -445,6 +455,8 @@ class Denoiser:
         for i in range(mag.shape[0]):
             g = params.gain_smoothing * g + (1.0 - params.gain_smoothing) * subtract_gains(mag[i], noise[i], params)
             gains[i] = np.where(self._subtract_mask, _smooth3(np.clip(g, 0.0, 1.0)), 1.0)
+            if tone_mask is not None:
+                gains[i] = np.where(tone_mask, np.minimum(gains[i], TONE_NOTCH_GAIN), gains[i])
         cleaned = np.fft.irfft(spec * gains, n=cfg.frame_size, axis=1)
         out = self._overlap_add(cleaned, len(x))
         # the first few ms of a windowed STFT have no full overlap yet; fade them

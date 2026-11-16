@@ -19,8 +19,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.yuushilabs.pianosheet.ui.theme.ScorePalette
+import com.yuushilabs.pianosheet.ui.theme.rememberScorePalette
 import com.yuushilabs.pianosheet.domain.model.Staff
 import com.yuushilabs.pianosheet.domain.model.StaffNotation
 import com.yuushilabs.pianosheet.domain.score.Accidental
@@ -55,6 +58,7 @@ fun CompletedScoreCanvas(
     playheadBeat: Double? = null,
 ) {
     val density = LocalDensity.current
+    val palette = rememberScorePalette()
     val lineGap = with(density) { 9f.dp.toPx() }
     val halfGap = lineGap / 2f
     val headerWidth = with(density) { 62f.dp.toPx() }
@@ -89,20 +93,22 @@ fun CompletedScoreCanvas(
                     .fillMaxWidth()
                     .height(totalHeight),
             ) {
-                val ink = Color(0xFF1B1A1D)
-                val muted = Color(0xFF8A8794)
-                val accent = Color(0xFF8A2E3B)
-                val highlight = Color(0x268A2E3B)
+                // Every colour comes from the palette, so the same drawing is legible
+                // on the light and on the dark background (it used to be fixed black).
+                val ink = palette.ink
+                val staff = palette.staff
+                val accent = palette.accent
+                val highlight = palette.highlight
                 val stroke = 1.05f.dp.toPx()
                 val thickStroke = 1.7f.dp.toPx()
 
                 val textPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb(255, 27, 26, 29)
+                    color = palette.ink.toArgb()
                     isAntiAlias = true
                     typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.NORMAL)
                 }
                 val labelPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb(180, 110, 106, 120)
+                    color = palette.label.toArgb()
                     isAntiAlias = true
                     textAlign = android.graphics.Paint.Align.CENTER
                     textSize = 8f.dp.toPx()
@@ -143,11 +149,11 @@ fun CompletedScoreCanvas(
                     }
 
                     // Staff lines.
-                    for (staff in 0..1) {
-                        val top = if (staff == 0) trebleTop else bassTop
+                    for (staffIndex in 0..1) {
+                        val top = if (staffIndex == 0) trebleTop else bassTop
                         for (index in 0..4) {
                             drawLine(
-                                color = ink,
+                                color = staff,
                                 start = Offset(left, lineY(top, index)),
                                 end = Offset(right, lineY(top, index)),
                                 strokeWidth = stroke,
@@ -169,7 +175,7 @@ fun CompletedScoreCanvas(
                             left + 2f, bassBottom,
                         )
                     }
-                    drawPath(brace, color = ink, style = Stroke(width = thickStroke))
+                    drawPath(brace, color = staff, style = Stroke(width = thickStroke))
 
                     // Clefs.
                     drawText(
@@ -195,6 +201,7 @@ fun CompletedScoreCanvas(
                         bassTop = bassTop,
                         lineGap = lineGap,
                         halfGap = halfGap,
+                        color = ink,
                     )
 
                     // Time signature.
@@ -205,6 +212,7 @@ fun CompletedScoreCanvas(
                         bassTop = bassTop,
                         lineGap = lineGap,
                         paint = textPaint,
+                        color = ink,
                     )
 
                     // Measure numbers and bar lines.
@@ -212,26 +220,26 @@ fun CompletedScoreCanvas(
                         val leftBar = if (position == 0) left + headerWidth else left + headerWidth + box.x
                         val rightBar = left + headerWidth + box.endX
                         drawLine(
-                            color = ink,
+                            color = staff,
                             start = Offset(leftBar, trebleTop),
                             end = Offset(leftBar, trebleBottom),
                             strokeWidth = if (position == 0) thickStroke else stroke,
                         )
                         drawLine(
-                            color = ink,
+                            color = staff,
                             start = Offset(leftBar, bassTop),
                             end = Offset(leftBar, bassBottom),
                             strokeWidth = if (position == 0) thickStroke else stroke,
                         )
                         if (position == system.measures.lastIndex) {
                             drawLine(
-                                color = ink,
+                                color = staff,
                                 start = Offset(rightBar, trebleTop),
                                 end = Offset(rightBar, trebleBottom),
                                 strokeWidth = stroke,
                             )
                             drawLine(
-                                color = ink,
+                                color = staff,
                                 start = Offset(rightBar, bassTop),
                                 end = Offset(rightBar, bassBottom),
                                 strokeWidth = stroke,
@@ -263,6 +271,7 @@ fun CompletedScoreCanvas(
                             halfGap = halfGap,
                             stroke = stroke,
                             ink = if (activeNoteIds.contains(note.id)) accent else ink,
+                            staffColor = staff,
                         )
                     }
                     for (rest in score.rests) {
@@ -275,7 +284,7 @@ fun CompletedScoreCanvas(
                             bassTop = bassTop,
                             lineGap = lineGap,
                             halfGap = halfGap,
-                            ink = muted,
+                            ink = palette.rest,
                             stroke = stroke,
                         )
                     }
@@ -309,13 +318,14 @@ private fun DrawScope.drawKeySignature(
     bassTop: Float,
     lineGap: Float,
     halfGap: Float,
+    color: Color,
 ) {
     if (key.fifths == 0) return
     val isSharp = key.fifths > 0
     val trebleSteps = if (isSharp) SHARP_STEPS_TREBLE else FLAT_STEPS_TREBLE
     val bassSteps = if (isSharp) SHARP_STEPS_BASS else FLAT_STEPS_BASS
     val count = kotlin.math.abs(key.fifths)
-    val inkColor = Color(0xFF1B1A1D)
+    val inkColor = color
     val stroke = lineGap * 0.11f
     for (index in 0 until count) {
         val offset = index * lineGap * 0.78f
@@ -433,8 +443,9 @@ private fun DrawScope.drawTimeSignature(
     bassTop: Float,
     lineGap: Float,
     paint: android.graphics.Paint,
+    color: Color,
 ) {
-    paint.color = android.graphics.Color.argb(255, 27, 26, 29)
+    paint.color = color.toArgb()
     paint.typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.BOLD)
     paint.textAlign = android.graphics.Paint.Align.CENTER
     paint.textSize = lineGap * 2.5f
@@ -474,6 +485,7 @@ private fun DrawScope.drawNote(
     halfGap: Float,
     stroke: Float,
     ink: Color,
+    staffColor: Color = ink,
 ) {
     val staffTop = if (note.staff == Staff.TREBLE) trebleTop else bassTop
     val bottomLine = staffTop + 4 * lineGap
@@ -483,7 +495,7 @@ private fun DrawScope.drawNote(
 
     for (ledger in StaffNotation.ledgerSteps(step)) {
         drawLine(
-            color = ink,
+            color = staffColor,
             start = Offset(x - lineGap * 0.95f, bottomLine - ledger * halfGap),
             end = Offset(x + lineGap * 0.95f, bottomLine - ledger * halfGap),
             strokeWidth = stroke,

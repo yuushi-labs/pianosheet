@@ -53,6 +53,37 @@ class PianoSynthTest {
     }
 
     @Test
+    fun `the high register is darker than the low register`() {
+        // A C7 must not put its upper partials at full level: that is the
+        // "キンキン" whistle the user reported.
+        val lowFourth = PianoSynth.partialAmplitude(4, midiPitch = 60)
+        val highFourth = PianoSynth.partialAmplitude(4, midiPitch = 96)
+        assertTrue("C7 4th partial $highFourth vs C4 $lowFourth", highFourth < lowFourth * 0.25)
+
+        val fundamental = PianoSynth.partialAmplitude(1, midiPitch = 96)
+        val whistle = PianoSynth.partialAmplitude(5, midiPitch = 96)
+        assertTrue("5th partial of C7 must be >= 15 dB below its fundamental", whistle < fundamental * 0.18)
+
+        // The low register keeps its bright spectrum.
+        assertTrue(PianoSynth.partialAmplitude(3, midiPitch = 48) > PianoSynth.partialAmplitude(3, midiPitch = 96))
+    }
+
+    @Test
+    fun `a dense chord is limited instead of clipped`() {
+        val buffer = FloatArray(sampleRate * 2)
+        for (midi in 60..72) {
+            PianoSynth.addNote(buffer, 0, sampleRate, midi, 1.2, velocity = 1f)
+        }
+        val before = buffer.copyOf()
+        PianoSynth.finish(buffer)
+        assertTrue(buffer.maxOf { abs(it) } <= PianoSynth.PEAK + 1e-4f)
+        // The limiter bends the peaks but must not silence the quiet part.
+        val quietIndex = (sampleRate * 0.9).toInt()
+        assertEquals(before[quietIndex], buffer[quietIndex], 1e-5f)
+        assertTrue(buffer.maxOf { abs(it) } > 0.5f)
+    }
+
+    @Test
     fun `a note starts where it is asked to`() {
         val buffer = FloatArray(sampleRate)
         PianoSynth.addNote(buffer, sampleRate / 2, sampleRate, 69, 0.3)

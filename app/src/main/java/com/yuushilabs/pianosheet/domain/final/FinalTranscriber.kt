@@ -53,8 +53,14 @@ data class FinalTranscription(
     val notes: List<NoteEvent>,
     val denoiseProfile: String?,
     val humHz: Double?,
+    /** Stationary tones the denoiser notched out of the analysis copy. */
+    val toneNotchesHz: List<Double> = emptyList(),
     val windowCount: Int,
     val startupSuppressed: Int,
+    /** Upper partials removed as octave ghosts of a stronger note. */
+    val overtoneSuppressed: Int = 0,
+    /** Candidates removed because they lasted less than 80 ms. */
+    val shortSuppressed: Int = 0,
     val analysisMs: Long,
     val audioDurationSec: Double,
     val sampleRate: Int,
@@ -104,8 +110,9 @@ class FinalTranscriber(
             humHz = MainsHumDetector.detect(resampled, targetSampleRate)
             if (humHz != null) config = config.copy(notchHz = humHz)
         }
+        val denoiser = Denoiser(config ?: DenoiseConfig())
         val cleaned = if (config != null && config.enabled) {
-            Denoiser(config).process(resampled)
+            denoiser.process(resampled)
         } else {
             resampled
         }
@@ -168,7 +175,8 @@ class FinalTranscriber(
         }
 
         onProgress(FinalProgress(FinalStage.FINISHING, 0.88, "楽譜を仕上げています"))
-        val merged = FinalNoteMerger.merge(results, toleranceMs = options.mergeToleranceMs)
+        val mergedResult = FinalNoteMerger.mergeDetailed(results, toleranceMs = options.mergeToleranceMs)
+        val merged = mergedResult.notes
         val correlation = correlate(merged, liveEvents)
         val audioDurationSec = prepared.size.toDouble() / targetSampleRate
 
@@ -199,10 +207,13 @@ class FinalTranscriber(
         return FinalTranscription(
             score = score,
             notes = merged,
-            denoiseProfile = config?.describeProfile(),
+            denoiseProfile = config?.describeProfile(denoiser.lastToneNotchesHz),
             humHz = humHz,
+            toneNotchesHz = denoiser.lastToneNotchesHz,
             windowCount = windowStarts.size,
             startupSuppressed = suppressed,
+            overtoneSuppressed = mergedResult.overtoneDropped,
+            shortSuppressed = mergedResult.shortDropped,
             analysisMs = (System.nanoTime() - startedAt) / 1_000_000L,
             audioDurationSec = audioDurationSec,
             sampleRate = targetSampleRate,

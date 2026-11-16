@@ -2,8 +2,12 @@ package com.yuushilabs.pianosheet.feature.score
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +33,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -40,9 +45,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yuushilabs.pianosheet.domain.score.Score
@@ -230,6 +239,7 @@ private fun EstimateRow(score: Score) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlaybackPanel(
     state: ScoreUiState,
@@ -276,26 +286,63 @@ private fun PlaybackPanel(
             )
             Text(formatTime(state.durationSec), style = MaterialTheme.typography.labelSmall)
         }
+        // Five speed chips have to fit a 720 px (360 dp) screen.  They use a
+        // compact shape and wrap to a second line instead of being squeezed into
+        // a vertical sliver at the right edge, which is what happened before.
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text("速度", style = MaterialTheme.typography.labelSmall)
-            for (speed in SPEEDS) {
-                FilterChip(
-                    selected = kotlin.math.abs(state.speed - speed) < 0.01f,
-                    onClick = { onSpeed(speed) },
-                    label = { Text("${speed}x") },
-                )
+            Spacer(Modifier.width(6.dp))
+            FlowRow(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                for (speed in SpeedOptions.speeds) {
+                    SpeedChip(
+                        label = SpeedOptions.label(speed),
+                        selected = kotlin.math.abs(state.speed - speed) < 0.01f,
+                        onClick = { onSpeed(speed) },
+                    )
+                }
             }
-            Spacer(Modifier.weight(1f))
             if (state.measureIndex >= 0) {
+                Spacer(Modifier.width(6.dp))
                 Text(
                     "${state.measureIndex + 1} 小節",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SpeedChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(9.dp),
+        color = if (selected) colors.primary else Color.Transparent,
+        contentColor = if (selected) colors.onPrimary else colors.onSurface,
+        border = BorderStroke(1.dp, if (selected) colors.primary else colors.outline),
+        modifier = Modifier.height(30.dp),
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 7.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+            )
         }
     }
 }
@@ -315,7 +362,23 @@ private fun ExportRow(onSave: () -> Unit, onShare: () -> Unit) {
     }
 }
 
-private val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
+/** The playback speeds offered under the score, and their short labels. */
+internal object SpeedOptions {
+    val speeds: List<Float> = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
+
+    /** 0.75f -> "0.75x", 1.0f -> "1.0x": never wider than five characters. */
+    fun label(speed: Float): String {
+        val hundredths = (speed * 100f).roundToInt()
+        val whole = hundredths / 100
+        val fraction = hundredths % 100
+        val fractionText = when {
+            fraction == 0 -> "0"
+            fraction % 10 == 0 -> "${fraction / 10}"
+            else -> fraction.toString().padStart(2, '0')
+        }
+        return "$whole.$fractionText" + "x"
+    }
+}
 
 private fun formatTime(seconds: Double): String {
     val safe = seconds.coerceAtLeast(0.0)

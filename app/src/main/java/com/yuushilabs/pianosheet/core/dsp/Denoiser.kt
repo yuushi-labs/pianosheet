@@ -18,6 +18,10 @@ class Denoiser(private val config: DenoiseConfig = DenoiseConfig()) {
     private val window = Fft.periodicHann(config.frameSize)
     private val subtractMask = config.subtractMask()
 
+    /** Stationary tones removed from the last processed take (diagnostics). */
+    var lastToneNotchesHz: List<Double> = emptyList()
+        private set
+
     fun process(input: FloatArray): FloatArray {
         if (!config.enabled || input.isEmpty()) return input.copyOf()
 
@@ -28,6 +32,28 @@ class Denoiser(private val config: DenoiseConfig = DenoiseConfig()) {
         config.notchHz?.let { notch ->
             y = BiquadDesign.notch(notch, config.sampleRate.toDouble(), config.notchQ).process(y)
         }
+
+        // A steady high whistle ignores the statistical noise floor (it is not
+        // "between the partials", it is a partial of nothing), so it gets its own
+        // narrow notch.  The frequencies come from the caller when it measured
+        // them already, otherwise from this take.
+        val tones = when {
+            !config.toneNotchEnabled -> emptyList()
+            config.toneNotchesHz != null -> config.toneNotchesHz
+            else -> ToneNoiseDetector.detect(
+                audio = input,
+                sampleRate = config.sampleRate,
+                frameSize = config.frameSize,
+                hopSize = config.hopSize,
+                maxCount = config.toneNotchMaxCount,
+            ).map { it.frequencyHz }
+        }
+        lastToneNotchesHz = tones
+        // Suppression is done inside the STFT (a few bins either side of the tone)
+        // rather than with a deep IIR notch: it removes the whistle without
+        // carving a hole in the semitone of a real note.
+        val toneMask = toneMask(config, tones)
+        val toneGain = 10.0.pow(config.toneNotchGainDb / 20.0)
 
         val frameSize = config.frameSize
         val hop = config.hopSize
@@ -58,7 +84,8 @@ class Denoiser(private val config: DenoiseConfig = DenoiseConfig()) {
             val clamped = DoubleArray(config.nBins) { bin -> smoothed[bin].coerceIn(0.0, 1.0) }
             val smoothedAcrossBins = DenoiseMath.smooth3(clamped)
             val gains = DoubleArray(config.nBins) { bin ->
-                if (subtractMask[bin]) smoothedAcrossBins[bin] else 1.0
+                val base = if (subtractMask[bin]) smoothedAcrossBins[bin] else 1.0
+                if (toneMask[bin]) minOf(base, toneGain) else base
             }
             for (bin in 0 until config.nBins) {
                 specRe[bin] *= gains[bin]
@@ -80,6 +107,20 @@ class Denoiser(private val config: DenoiseConfig = DenoiseConfig()) {
             val normalised = ola[i] / max(env[i], envFloor)
             (normalised * fade[i]).toFloat()
         }
+    }
+
+    /** Bins covered by the stationary-tone suppression. */
+    private fun toneMask(config: DenoiseConfig, tones: List<Double>): BooleanArray {
+        val mask = BooleanArray(config.nBins)
+        if (!config.toneNotchEnabled || tones.isEmpty()) return mask
+        val binHz = config.sampleRate.toDouble() / config.frameSize
+        for (tone in tones.take(config.toneNotchMaxCount)) {
+            val centre = Math.round(tone / binHz).toInt()
+            for (bin in centre - config.toneNotchHalfWidthBins..centre + config.toneNotchHalfWidthBins) {
+                if (bin in 0 until config.nBins) mask[bin] = true
+            }
+        }
+        return mask
     }
 
     /** Diagnostics for the settings screen / logs. */

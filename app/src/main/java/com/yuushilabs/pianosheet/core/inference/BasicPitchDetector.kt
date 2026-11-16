@@ -17,11 +17,16 @@ class BasicPitchDetector(
     private val onsetThreshold: Float = BasicPitchConstants.DEFAULT_ONSET_THRESHOLD,
     private val frameThreshold: Float = BasicPitchConstants.DEFAULT_FRAME_THRESHOLD,
     private val minNoteLength: Int = BasicPitchConstants.DEFAULT_MIN_NOTE_LENGTH_FRAMES,
+    private val filterSettings: NoteCandidateFilter.Settings = NoteCandidateFilter.Settings(),
 ) : ChunkDetector {
 
     override val name: String = "basic_pitch_onnx"
 
     var lastComputeMs: Double = 0.0
+        private set
+
+    /** Candidates the physical checks of [NoteCandidateFilter] removed in total. */
+    var filteredOut: Int = 0
         private set
 
     override fun detect(window: FloatArray, windowStartS: Double): List<Detection> {
@@ -63,6 +68,13 @@ class BasicPitchDetector(
                 confidence = note.amplitude,
                 onsetStrength = note.onsetStrength,
             )
+        }.let { candidates ->
+            // The decoder reports everything the network activates, including the
+            // upper partials of the low register and clicks of a few frames.  The
+            // physical checks run per window, before the windows are merged.
+            val filtered = NoteCandidateFilter.filter(candidates, filterSettings)
+            filteredOut += filtered.droppedTotal
+            filtered.kept
         }
     }
 }
