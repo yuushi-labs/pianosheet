@@ -211,8 +211,9 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
                     Log.e(TAG, "analysis step failed", error)
                 }
             }
-        } catch (error: IllegalStateException) {
-            // Executor already shut down (take ending).
+        } catch (error: RuntimeException) {
+            // Executor already shut down (take ending); the sample is simply not analysed.
+            Log.d(TAG, "analysis queue closed: ${error.javaClass.simpleName}")
         }
     }
 

@@ -189,21 +189,26 @@ class AudioCapture {
 
     fun stop() {
         running = false
+        // Stop first: a blocking read() returns as soon as the recorder stops, so the
+        // capture thread can finish before the buffers are released.
+        record?.let { recorder ->
+            try {
+                if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                    recorder.stop()
+                }
+                Unit
+            } catch (error: Exception) {
+                Log.w(TAG, "stop failed", error)
+            }
+        }
         thread?.let { worker ->
             try {
-                worker.join(400)
+                worker.join(600)
             } catch (_: InterruptedException) {
             }
         }
         thread = null
-        record?.let { recorder ->
-            try {
-                if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) recorder.stop()
-            } catch (error: Exception) {
-                Log.w(TAG, "stop failed", error)
-            }
-            recorder.release()
-        }
+        record?.release()
         record = null
         for (effect in effects) {
             try {

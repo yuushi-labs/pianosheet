@@ -32,6 +32,9 @@ class LiveTranscriptionEngine(
     private val _events = ArrayList<NoteEvent>()
     private val _steps = ArrayList<StepStat>()
 
+    /** The analysis thread appends while the UI thread reads counts/latency. */
+    private val eventsLock = Any()
+
     val events: List<NoteEvent> get() = _events
     val steps: List<StepStat> get() = _steps
 
@@ -98,7 +101,7 @@ class LiveTranscriptionEngine(
         return emptyList()
     }
 
-    fun eventsSnapshot(): List<NoteEvent> = _events.toList()
+    fun eventsSnapshot(): List<NoteEvent> = synchronized(eventsLock) { _events.toList() }
 
     private fun trim() {
         while (chunks.size > 1 && chunksLength - chunks.first().size >= config.windowSamples) {
@@ -190,7 +193,7 @@ class LiveTranscriptionEngine(
                 bufferMs = round2(1000.0 * endSample / config.sampleRate),
             ),
         )
-        _events.addAll(newEvents)
+        synchronized(eventsLock) { _events.addAll(newEvents) }
         return newEvents
     }
 
@@ -251,13 +254,15 @@ class LiveTranscriptionEngine(
 
     /** p95 of the display latency of the events reported so far (ms), for the header. */
     fun latencyP95Ms(): Double? {
-        val latencies = _events.mapNotNull { it.latencyMs }.sorted()
+        val latencies = synchronized(eventsLock) {
+            _events.mapNotNull { it.latencyMs }.sorted()
+        }
         if (latencies.isEmpty()) return null
         val index = ((latencies.size - 1) * 0.95).toInt()
         return latencies[index]
     }
 
-    fun lastLatencyMs(): Double? = _events.lastOrNull()?.latencyMs
+    fun lastLatencyMs(): Double? = synchronized(eventsLock) { _events.lastOrNull()?.latencyMs }
 
     fun lastComputeMs(): Double = lastComputeMs
 
