@@ -62,9 +62,9 @@ python3 -m unittest discover -s tests     # 動作確認
 ```python
 from pianosheet_poc.denoise import DenoiseConfig, Denoiser, StreamingDenoiser
 
-final = Denoiser(DenoiseConfig(strength="standard", notch_hz=50.0)).process(audio)  # 最終解析
-live = StreamingDenoiser(DenoiseConfig(strength="weak"))                            # ライブ
-denoiser = live.process_chunk(chunk)   # 入力より少し短い（保持分がある）
+final = Denoiser(DenoiseConfig(strength="standard")).process(audio)      # 最終解析
+live = StreamingDenoiser(DenoiseConfig(strength="weak"))                 # ライブ
+denoised = live.process_chunk(chunk)   # 入力より少し短い（確定待ちの分だけ保持する）
 ```
 
 - `strength`: `off` / `weak` / `standard` / `strong`
