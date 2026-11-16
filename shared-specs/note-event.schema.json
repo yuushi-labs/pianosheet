@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yuushi-labs/pianosheet/shared-specs/note-event.schema.json",
+  "title": "PianoSheet NoteEvent",
+  "description": "PianoSheet の共通ノートイベント形式。ライブ採譜（LiveNoteEvent）と最終解析（FinalNote）の両方をこのスキーマで表し、LiveTranscriber / FinalTranscriber の実装（Basic Pitch / DSP / 将来のモデル）を差し替えても UI と保存層が壊れないようにする。Kotlin 側では kotlinx.serialization、Python 側では pydantic に写す想定。",
+  "type": "object",
+  "required": ["id", "pitch_midi", "onset_ms", "state"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "イベントID（UUID）。暫定ノートと最終ノートの対応付けにも使う。"
+    },
+    "project_id": {
+      "type": ["string", "null"],
+      "description": "プロジェクトID（UUID）。録音中の一時イベントでは未確定でもよい。"
+    },
+    "sequence": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "検出順。同じ時刻の和音を安定して並べるための通し番号。"
+    },
+    "pitch_midi": {
+      "type": "integer",
+      "minimum": 21,
+      "maximum": 108,
+      "description": "MIDIノート番号（A0=21 〜 C8=108）。"
+    },
+    "onset_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "発音時刻（録音開始からのミリ秒）。ライブでは推定値。"
+    },
+    "duration_ms": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "音の長さ。ライブ段階では未確定のため null を許す。"
+    },
+    "off_confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "終了時刻の推定信頼度（最終解析で使う）。"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1.0,
+      "description": "検出全体の信頼度。Basic Pitch ではフレーム活性の平均。"
+    },
+    "onset_strength": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "打鍵の強さ（モデルの onset 活性の生値）。減衰尾を再発音と誤認しないための判定に使う。DSP検出器では null。"
+    },
+    "velocity": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 127,
+      "description": "推定ベロシティ（最終解析）。"
+    },
+    "state": {
+      "type": "string",
+      "enum": ["pending", "provisional", "confirmed", "revised", "rejected"],
+      "description": "pending=検出候補 / provisional=ライブ譜面に表示済み / confirmed=最終解析で確定 / revised=最終解析で修正 / rejected=誤検出として除外"
+    },
+    "source_chunk": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "どの解析ステップ（チャンク）で検出したか。"
+    },
+    "detector": {
+      "type": ["string", "null"],
+      "description": "検出器名（basic_pitch_onnx / spectral_peaks など）。モデル差し替えの追跡用。"
+    },
+    "staff": {
+      "type": ["string", "null"],
+      "enum": ["treble", "bass", null],
+      "description": "ト音記号 / ヘ音記号。ライブ段階では暫定。"
+    },
+    "measure_index": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "小節番号（最終解析）。"
+    },
+    "beat_position": {
+      "type": ["number", "null"],
+      "description": "小節内の拍位置（最終解析）。"
+    },
+    "duration_type": {
+      "type": ["string", "null"],
+      "enum": [
+        "whole",
+        "half",
+        "quarter",
+        "eighth",
+        "16th",
+        "32nd",
+        "64th",
+        null
+      ],
+      "description": "音符の種類（最終解析）。ライブでは null。"
+    },
+    "dotted": {
+      "type": ["boolean", "null"],
+      "description": "付点の有無（最終解析）。"
+    },
+    "tie": {
+      "type": ["string", "null"],
+      "enum": ["start", "stop", "continue", "none", null],
+      "description": "タイの状態（最終解析）。"
+    },
+    "source_live_event_id": {
+      "type": ["string", "null"],
+      "description": "対応するライブイベントID（暫定→確定の履歴保持）。"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "最終更新時刻（ISO 8601）。"
+    }
+  },
+  "$defs": {
+    "liveNoteEvent": {
+      "title": "LiveNoteEvent",
+      "description": "録音中に返す暫定イベント。duration_ms / staff / measure は未確定でよい。",
+      "allOf": [
+        { "$ref": "#" },
+        {
+          "properties": {
+            "state": { "enum": ["pending", "provisional", "rejected"] },
+            "duration_ms": { "type": ["number", "null"] }
+          }
+        }
+      ]
+    },
+    "finalNote": {
+      "title": "FinalNote",
+      "description": "最終解析で確定した音符。",
+      "allOf": [
+        { "$ref": "#" },
+        {
+          "required": ["duration_ms", "staff"],
+          "properties": {
+            "state": { "enum": ["confirmed", "revised", "rejected"] },
+            "duration_ms": { "type": "number", "minimum": 0 },
+            "staff": { "enum": ["treble", "bass"] }
+          }
+        }
+      ]
+    },
+    "noteEventList": {
+      "title": "NoteEventList",
+      "type": "object",
+      "required": ["schema_version", "events"],
+      "properties": {
+        "schema_version": { "type": "string", "const": "1.0" },
+        "project_id": { "type": ["string", "null"] },
+        "source": {
+          "type": "string",
+          "enum": ["live", "final_analysis", "user_edit"]
+        },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#" }
+        }
+      }
+    }
+  }
+}

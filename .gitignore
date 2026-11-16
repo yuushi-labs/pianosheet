@@ -1,0 +1,35 @@
+# Native Android build
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.iml
+.gradle/
+local.properties
+captures/
+.cxx/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Phase 0 artifacts
+# モデルの重みは再配布せず、scripts/fetch_basic_pitch_model.py で取得する
+phase0-poc/models/*.onnx
+phase0-poc/models/*.tflite
+# 生成したWAVは再生成可能だが、実測の再現のためコミットする（wav/ は追跡）
+# phase0-poc/results/*.json は実測結果なのでコミットする
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
