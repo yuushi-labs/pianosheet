@@ -100,6 +100,7 @@ private fun ColumnScope.ProjectDetailContent(detail: ProjectDetail) {
                         append(" ・ ${recording.durationMs / 1000.0} 秒")
                         append(" ・ ${recording.sampleRate} Hz")
                         append(" ・ ${recording.audioSource}")
+                        if (recording.isUnprocessed) append("（無加工）")
                     }
                 },
                 style = MaterialTheme.typography.bodySmall,

@@ -41,6 +41,7 @@ data class RecordingAssetEntity(
     val createdAt: Long,
     val audioSource: String,
     val denoiseProfile: String?,
+    val isUnprocessed: Boolean,
 )
 
 @Entity(

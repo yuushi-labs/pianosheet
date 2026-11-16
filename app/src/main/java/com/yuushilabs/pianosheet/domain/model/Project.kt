@@ -23,6 +23,8 @@ data class RecordingInfo(
     val fileSize: Long,
     val audioSource: String,
     val denoiseProfile: String?,
+    /** True when the take was captured through AudioSource.UNPROCESSED (no OS effects). */
+    val isUnprocessed: Boolean,
 )
 
 data class ProjectSummary(

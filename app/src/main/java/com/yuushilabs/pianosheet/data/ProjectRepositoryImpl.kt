@@ -59,6 +59,7 @@ class ProjectRepositoryImpl(
                 createdAt = System.currentTimeMillis(),
                 audioSource = recording.audioSource,
                 denoiseProfile = recording.denoiseProfile,
+                isUnprocessed = recording.isUnprocessed,
             ),
         )
         noteEventDao.deleteByProject(project.id)
@@ -113,6 +114,7 @@ class ProjectRepositoryImpl(
                 createdAt = now,
                 audioSource = "upload",
                 denoiseProfile = null,
+                isUnprocessed = false,
             ),
         )
         return summary
@@ -149,6 +151,7 @@ class ProjectRepositoryImpl(
         fileSize = fileSize,
         audioSource = audioSource,
         denoiseProfile = denoiseProfile,
+        isUnprocessed = isUnprocessed,
     )
 
     private fun NoteEventEntity.toNoteEvent() = NoteEvent(

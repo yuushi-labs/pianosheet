@@ -86,6 +86,7 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
     private var wavFile: File? = null
     private var captureRate = 22050
     private var captureSource = ""
+    private var captureUnprocessed = true
     private var denoiseProfile: String? = null
 
     private var analysisExecutor: ExecutorService? = null
@@ -146,6 +147,7 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
                     onReady = { captureInfo ->
                         captureRate = captureInfo.sampleRate
                         captureSource = captureInfo.source
+                        captureUnprocessed = captureInfo.unprocessed
                         liveResampler = if (captureInfo.sampleRate == 22050) null else StreamingResampler(captureInfo.sampleRate)
                         writer = WavFileWriter(file, captureInfo.sampleRate)
                     },
@@ -289,6 +291,7 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
         val duration = writerRef?.durationMs ?: 0L
         val rate = captureRate
         val source = captureSource
+        val unprocessed = captureUnprocessed
         val profile = denoiseProfile
 
         if (file == null || !file.exists()) {
@@ -318,6 +321,7 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
                     fileSize = file.length(),
                     audioSource = source,
                     denoiseProfile = profile,
+                    isUnprocessed = unprocessed,
                 )
                 withContext(Dispatchers.IO) {
                     container.projectRepository.saveSession(summary, recording, events)
