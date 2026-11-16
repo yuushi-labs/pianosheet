@@ -1,0 +1,108 @@
+{
+  "test_id": "T-017",
+  "name": "noisy_chords",
+  "description": "定常ノイズSNR15dB＋50Hzハム＋弱い空調ランブル",
+  "sample_rate": 44100,
+  "duration_s": 8.25,
+  "level_db": -3.0,
+  "noise_snr_db": 15.0,
+  "noise": {
+    "hum_hz": 50.0,
+    "hum_ratio": 0.3,
+    "rumble_level": 1.0,
+    "rumble_hz": [
+      28.0,
+      42.0,
+      62.0
+    ],
+    "rumble_mod_hz": 0.25
+  },
+  "wav": "test-fixtures/wav/T-017_noisy_chords.wav",
+  "sha256": "019678786656e735f70e82515661feb36803037f2d5a1df08715c8e461d9384e",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.3,
+      "offset_s": 1.2,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 0.3,
+      "offset_s": 1.2,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 0.3,
+      "offset_s": 1.2,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 1.65,
+      "offset_s": 2.55,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 1.65,
+      "offset_s": 2.55,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 1.65,
+      "offset_s": 2.55,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 55,
+      "onset_s": 3.0,
+      "offset_s": 3.9,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 59,
+      "onset_s": 3.0,
+      "offset_s": 3.9,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 3.0,
+      "offset_s": 3.9,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 53,
+      "onset_s": 4.35,
+      "offset_s": 5.25,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 4.35,
+      "offset_s": 5.25,
+      "velocity": 0.62,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 4.35,
+      "offset_s": 5.25,
+      "velocity": 0.62,
+      "pedal": false
+    }
+  ]
+}

@@ -6,6 +6,7 @@
   "duration_s": 6.56,
   "level_db": -3.0,
   "noise_snr_db": null,
+  "noise": null,
   "wav": "test-fixtures/wav/T-004b_melody_down.wav",
   "sha256": "1e4028aef827fdb57b14a32a2aa48d64de7a098416288b9539d0d20a9509f15e",
   "notes": [

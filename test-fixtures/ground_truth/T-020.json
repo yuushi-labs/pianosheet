@@ -1,0 +1,108 @@
+{
+  "test_id": "T-020",
+  "name": "pedal_noisy",
+  "description": "ペダル使用＋定常ノイズ（T-012の残響をSNR10dBの部屋で）",
+  "sample_rate": 44100,
+  "duration_s": 6.5,
+  "level_db": -3.0,
+  "noise_snr_db": 10.0,
+  "noise": {
+    "hum_hz": 50.0,
+    "hum_ratio": 0.3,
+    "rumble_level": 0.0,
+    "rumble_hz": [
+      28.0,
+      42.0,
+      62.0
+    ],
+    "rumble_mod_hz": 0.25
+  },
+  "wav": "test-fixtures/wav/T-020_pedal_noisy.wav",
+  "sha256": "e6672213d3310c1d1874615382226dc856e21f197feb43c7e72f351afe7a8027",
+  "notes": [
+    {
+      "pitch_midi": 48,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 55,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 50,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 52,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 59,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "test_id": "T-019",
+  "name": "quiet_notes_noisy",
+  "description": "弱い音＋定常ノイズ（T-011相当のppをSNR10dBの部屋で）",
+  "sample_rate": 44100,
+  "duration_s": 5.35,
+  "level_db": -24.0,
+  "noise_snr_db": 10.0,
+  "noise": {
+    "hum_hz": 50.0,
+    "hum_ratio": 0.3,
+    "rumble_level": 0.0,
+    "rumble_hz": [
+      28.0,
+      42.0,
+      62.0
+    ],
+    "rumble_mod_hz": 0.25
+  },
+  "wav": "test-fixtures/wav/T-019_quiet_notes_noisy.wav",
+  "sha256": "06d5ae12f00219900d5b5850c79fbc3d2ce4d9de3c723f10958a72a12b424f09",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.0,
+      "offset_s": 0.55,
+      "velocity": 0.12,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 0.9,
+      "offset_s": 1.45,
+      "velocity": 0.12,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 1.8,
+      "offset_s": 2.35,
+      "velocity": 0.12,
+      "pedal": false
+    }
+  ]
+}

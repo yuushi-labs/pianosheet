@@ -6,6 +6,7 @@
   "duration_s": 26.85,
   "level_db": -3.0,
   "noise_snr_db": null,
+  "noise": null,
   "wav": "test-fixtures/wav/T-015_long_session.wav",
   "sha256": "96d3ec8b8ab08844dbbdd04080f9914512f3f7141a144e8d7c8007b88b276a66",
   "notes": [

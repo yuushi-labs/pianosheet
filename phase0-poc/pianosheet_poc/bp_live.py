@@ -36,8 +36,9 @@ class BasicPitchStreaming(StreamingTranscriber):
         infer_onsets: bool = True,
         melodia_trick: bool = True,
         confidence_floor: float = 0.0,
+        preprocess=None,
     ) -> None:
-        super().__init__(config)
+        super().__init__(config, preprocess=preprocess)
         self.model = model
         self.onset_thresh = onset_thresh
         self.frame_thresh = frame_thresh

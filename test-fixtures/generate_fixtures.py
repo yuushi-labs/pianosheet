@@ -47,6 +47,15 @@ def main() -> int:
             "duration_s": round(len(audio) / SR, 3),
             "level_db": fixture.level_db,
             "noise_snr_db": fixture.noise_snr_db,
+            "noise": None
+            if fixture.noise_snr_db is None
+            else {
+                "hum_hz": fixture.hum_hz,
+                "hum_ratio": fixture.hum_ratio,
+                "rumble_level": fixture.rumble_level,
+                "rumble_hz": list(fixture.rumble_hz),
+                "rumble_mod_hz": fixture.rumble_mod_hz,
+            },
             "wav": str(path.relative_to(HERE.parent)),
             "sha256": digest,
             "notes": [

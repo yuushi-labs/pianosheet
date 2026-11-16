@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Dict, List, Optional
+from typing import Callable, Deque, Dict, List, Optional
 
 import numpy as np
 
@@ -77,8 +77,14 @@ class StreamingTranscriber:
 
     name = "streaming"
 
-    def __init__(self, config: LiveConfig) -> None:
+    def __init__(
+        self, config: LiveConfig, preprocess: Optional[Callable[[np.ndarray], np.ndarray]] = None
+    ) -> None:
         self.config = config
+        # optional analysis-side filter chain applied to each chunk as it
+        # arrives (the denoiser); it may hold back a few samples, which is why
+        # its delay is reported separately rather than changing event times
+        self.preprocess = preprocess
         self._chunks: Deque[np.ndarray] = deque()
         self._chunks_len = 0
         self._abs_samples = 0  # samples pushed so far
@@ -114,6 +120,10 @@ class StreamingTranscriber:
     def push_audio_chunk(self, chunk: np.ndarray, sequence: Optional[int] = None) -> List[NoteEvent]:
         """Push audio; returns the note events newly reported by this call."""
         chunk = np.ascontiguousarray(np.asarray(chunk, dtype=np.float32).reshape(-1))
+        if self.preprocess is not None:
+            chunk = np.ascontiguousarray(self.preprocess(chunk), dtype=np.float32)
+            if len(chunk) == 0:
+                return []
         self._chunks.append(chunk)
         self._chunks_len += len(chunk)
         self._abs_samples += len(chunk)

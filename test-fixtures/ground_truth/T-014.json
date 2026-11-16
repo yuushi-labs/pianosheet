@@ -6,6 +6,17 @@
   "duration_s": 8.25,
   "level_db": -3.0,
   "noise_snr_db": 20.0,
+  "noise": {
+    "hum_hz": 60.0,
+    "hum_ratio": 0.3,
+    "rumble_level": 0.0,
+    "rumble_hz": [
+      28.0,
+      42.0,
+      62.0
+    ],
+    "rumble_mod_hz": 0.25
+  },
   "wav": "test-fixtures/wav/T-014_noisy_chords.wav",
   "sha256": "3afb3d90bf92e6125b2a057e09c34d883b61a6c7c010250d4df0b0496fc5869b",
   "notes": [

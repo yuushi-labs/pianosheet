@@ -62,9 +62,16 @@ class Fixture:
     name: str
     description: str
     notes: List[Note]
-    noise_snr_db: Optional[float] = None
+    noise_snr_db: Optional[float] = None  # broadband stationary noise, SNR in dB
     level_db: float = -3.0
     seed: int = 0
+    # room noise details (only used when noise_snr_db is set).  The defaults
+    # reproduce the original T-014 render exactly.
+    hum_hz: Optional[float] = 60.0  # mains hum picked up by a phone mic
+    hum_ratio: float = 0.3  # hum amplitude relative to the noise RMS
+    rumble_level: float = 0.0  # air-conditioner / traffic rumble, relative to noise RMS
+    rumble_hz: tuple = (28.0, 42.0, 62.0)
+    rumble_mod_hz: float = 0.25  # slow amplitude modulation of the rumble
     extra: dict = field(default_factory=dict)
 
     @property
@@ -155,10 +162,19 @@ def render_fixture(fixture: Fixture, sr: int = SR) -> np.ndarray:
     if fixture.noise_snr_db is not None:
         rms = math.sqrt(float(np.mean(buf**2))) or 1e-6
         noise_rms = rms / (10 ** (fixture.noise_snr_db / 20.0))
+        t = np.arange(len(buf)) / sr
         buf += rng.normal(0, noise_rms, len(buf))
         # a little mains hum, as a phone microphone in a room picks up
-        t = np.arange(len(buf)) / sr
-        buf += 0.3 * noise_rms * np.sin(2 * math.pi * 60.0 * t)
+        if fixture.hum_hz:
+            buf += fixture.hum_ratio * noise_rms * np.sin(2 * math.pi * fixture.hum_hz * t)
+        # air-conditioner / traffic rumble: a few sub-60 Hz tones with a slow
+        # amplitude modulation, all below or around the piano's lowest key
+        if fixture.rumble_level > 0.0:
+            rumble = np.zeros(len(buf))
+            for i, f in enumerate(fixture.rumble_hz):
+                rumble += (1.0 / (i + 1)) * np.sin(2 * math.pi * f * t + i)
+            rumble *= 1.0 + 0.35 * np.sin(2 * math.pi * fixture.rumble_mod_hz * t)
+            buf += fixture.rumble_level * noise_rms * rumble / max(1.0, len(fixture.rumble_hz))
 
     peak = float(np.max(np.abs(buf))) or 1.0
     target = 10 ** (fixture.level_db / 20.0)
@@ -354,6 +370,62 @@ def build_fixtures() -> List[Fixture]:
             notes.append(Note(mel, t + 0.05, 0.4, 0.7))
             t += 1.0
     fx.append(Fixture("T-015", "long_session", "長時間音源（和音＋旋律24秒）", notes, seed=13))
+
+    # T-016..T-018: the same chords as T-005 under progressively worse room
+    # noise, for the denoising comparison (T-014 = SNR 20 dB is the existing one)
+    for tid, snr, hum, rumble, desc in (
+        ("T-016", 20.0, 50.0, 1.6, "低周波ノイズ（空調ランブル28/42/62Hz＋50Hzハム、SNR20dB）"),
+        ("T-017", 15.0, 50.0, 1.0, "定常ノイズSNR15dB＋50Hzハム＋弱い空調ランブル"),
+        ("T-018", 10.0, 60.0, 1.0, "定常ノイズSNR10dB＋60Hzハム＋弱い空調ランブル"),
+    ):
+        notes = []
+        for i, (_, pitches) in enumerate(chords3):
+            for p in pitches:
+                notes.append(Note(p, 0.3 + i * 1.35, 0.9, 0.62))
+        fx.append(
+            Fixture(
+                tid,
+                "noisy_chords",
+                desc,
+                notes,
+                noise_snr_db=snr,
+                hum_hz=hum,
+                rumble_level=rumble,
+                seed=20 + int(snr),
+            )
+        )
+
+    # T-019 / T-020: the two cases where a denoiser is most likely to hurt —
+    # very quiet notes, and pedal tails — recorded in a noisy room
+    fx.append(
+        Fixture(
+            "T-019",
+            "quiet_notes_noisy",
+            "弱い音＋定常ノイズ（T-011相当のppをSNR10dBの部屋で）",
+            [Note(p, i * 0.9, 0.55, 0.12) for i, p in enumerate([60, 64, 67])],
+            noise_snr_db=10.0,
+            hum_hz=50.0,
+            level_db=-24.0,
+            seed=31,
+        )
+    )
+    notes = []
+    t = 0.3
+    for chord in [(48, 55, 60, 64), (50, 57, 62, 65), (52, 59, 64, 67)]:
+        for p in chord:
+            notes.append(Note(p, t, 0.6, 0.6, pedal=True))
+        t += 0.8
+    fx.append(
+        Fixture(
+            "T-020",
+            "pedal_noisy",
+            "ペダル使用＋定常ノイズ（T-012の残響をSNR10dBの部屋で）",
+            notes,
+            noise_snr_db=10.0,
+            hum_hz=50.0,
+            seed=32,
+        )
+    )
 
     # T-012: sustain pedal (long release, overlapping tails)
     notes = []

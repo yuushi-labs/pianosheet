@@ -38,6 +38,13 @@ sys.path.insert(0, str(HERE))
 from pianosheet_poc.audio_io import load_wav, write_wav  # noqa: E402
 from pianosheet_poc.basicpitch_onnx import BasicPitchOnnx  # noqa: E402
 from pianosheet_poc.bp_live import BasicPitchStreaming  # noqa: E402
+from pianosheet_poc.denoise import (  # noqa: E402
+    DenoiseConfig,
+    Denoiser,
+    StreamingDenoiser,
+    detect_mains_hz,
+    highpass_response_db,
+)
 from pianosheet_poc.live import LiveConfig  # noqa: E402
 from pianosheet_poc.metrics import (  # noqa: E402
     chord_report,
@@ -174,7 +181,8 @@ def _is_chordy(gt: dict) -> bool:
 # stage: streaming (Basic Pitch)
 # --------------------------------------------------------------------------- #
 def run_stream(model, tid, gt, audio, window_s, step_s, confidence_floor=0.0,
-               onset_tol_ms=120.0, tail_merge_ms=120.0, guard_ms=260.0):
+               onset_tol_ms=120.0, tail_merge_ms=120.0, guard_ms=260.0,
+               denoiser_factory=None):
     cfg = LiveConfig(
         sample_rate=SAMPLE_RATE,
         window_s=window_s,
@@ -184,7 +192,11 @@ def run_stream(model, tid, gt, audio, window_s, step_s, confidence_floor=0.0,
         confidence_floor=confidence_floor,
         guard_ms=guard_ms,
     )
-    tr = BasicPitchStreaming(model, cfg)
+    denoiser = denoiser_factory() if denoiser_factory is not None else None
+    tr = BasicPitchStreaming(model, cfg, preprocess=None if denoiser is None else denoiser.process_chunk)
+    # the denoiser holds the newest audio back until its window is complete; the
+    # onsets keep the input timebase, so the delay is added to the latency only
+    extra_latency_ms = 0.0 if denoiser is None else denoiser.delay_ms
     tr.start_session()
 
     step_samples = cfg.step_samples
@@ -213,10 +225,14 @@ def run_stream(model, tid, gt, audio, window_s, step_s, confidence_floor=0.0,
         for ev in events
     ]
     score = match_notes(gt["refs"], est, onset_tol_s=0.05)
-    latencies = sorted((ev.emitted_at_s - ev.onset_s) * 1000.0 for ev in events if ev.emitted_at_s is not None)
+    latencies = sorted(
+        (ev.emitted_at_s - ev.onset_s) * 1000.0 + extra_latency_ms
+        for ev in events
+        if ev.emitted_at_s is not None
+    )
     compute = tr.step_compute_ms
     render_latency = sorted(
-        (ev.emitted_at_s - ev.onset_s) * 1000.0 + (ev.render_ms or 0.0)
+        (ev.emitted_at_s - ev.onset_s) * 1000.0 + (ev.render_ms or 0.0) + extra_latency_ms
         for ev in events
         if ev.emitted_at_s is not None
     )
@@ -257,6 +273,18 @@ def run_stream(model, tid, gt, audio, window_s, step_s, confidence_floor=0.0,
         "peak_rss_delta_mb": round(rss, 1),
         "missed": score["missed"][:10],
         "spurious": score["spurious"][:10],
+        "denoise": None
+        if denoiser is None
+        else {
+            "strength": denoiser.config.strength,
+            "delay_ms": round(extra_latency_ms, 1),
+            "n_chunks": len(denoiser.preprocess_ms),
+            "preprocess_ms_median": round(statistics.median(denoiser.preprocess_ms), 2),
+            "preprocess_ms_p95": round(sorted(denoiser.preprocess_ms)[int(0.95 * (len(denoiser.preprocess_ms) - 1))], 2),
+            "preprocess_rtf": round(
+                sum(denoiser.preprocess_ms) / (len(audio) / SAMPLE_RATE * 1000.0), 4
+            ),
+        },
     }
 
 
@@ -448,6 +476,208 @@ def stage_baselines() -> dict:
     return out
 
 
+
+# --------------------------------------------------------------------------- #
+# stage: denoising (T-014/T-016..T-020 + clean controls)
+# --------------------------------------------------------------------------- #
+DENOISE_CASES = [
+    ("T-014", "SNR 20dB＋60Hzハム（既存）"),
+    ("T-016", "低周波（空調ランブル28/42/62Hz＋50Hzハム）"),
+    ("T-017", "SNR 15dB＋50Hzハム"),
+    ("T-018", "SNR 10dB＋60Hzハム"),
+    ("T-019", "弱音(pp)＋SNR 10dB"),
+    ("T-020", "ペダル＋SNR 10dB"),
+]
+DENOISE_CONTROLS = ["T-005", "T-008", "T-011", "T-012"]
+DENOISE_MODES = ["off", "weak", "standard", "strong", "standard+notch"]
+MODE_LABELS = {
+    "off": "除去なし",
+    "weak": "弱",
+    "standard": "標準",
+    "strong": "強",
+    "standard+notch": "標準＋ハム自動",
+}
+
+
+def band_rms_db(audio: np.ndarray, lo_hz: float, hi_hz: float, sr: int = SAMPLE_RATE) -> float:
+    """Energy in a frequency band, relative to full scale (dBFS)."""
+    spec = np.abs(np.fft.rfft(audio.astype(np.float64) * np.hanning(len(audio))))
+    freqs = np.fft.rfftfreq(len(audio), 1.0 / sr)
+    band = spec[(freqs >= lo_hz) & (freqs < hi_hz)]
+    if band.size == 0:
+        return -240.0
+    return round(20.0 * np.log10(float(np.sqrt(np.mean(band**2))) / (len(audio) / 2) + 1e-12), 1)
+
+
+def tail_preservation_db(audio: np.ndarray, processed: np.ndarray, refs, tail_s: float = 0.45) -> float:
+    """How much of the sound *after* each note's release survives (0 dB = untouched).
+
+    A denoiser that eats decay tails or quiet notes shows up here even when the
+    note-detection F1 does not move.
+    """
+    ratios = []
+    for r in refs:
+        a = int((r["end_s"] - 0.02) * SAMPLE_RATE)
+        b = int((r["end_s"] + tail_s) * SAMPLE_RATE)
+        if a < 0 or b > len(audio):
+            continue
+        before = float(np.sqrt(np.mean(audio[a:b] ** 2)))
+        after = float(np.sqrt(np.mean(processed[a:b] ** 2)))
+        if before > 1e-6:
+            ratios.append(20.0 * np.log10(after / before))
+    return round(statistics.mean(ratios), 2) if ratios else 0.0
+
+
+def stage_denoise(model: BasicPitchOnnx) -> dict:
+    """Denoise off/weak/standard/strong, final analysis and live, same scoring."""
+    import functools
+
+    ids = [tid for tid, _ in DENOISE_CASES] + DENOISE_CONTROLS
+    labels = dict(DENOISE_CASES)
+    rows = []
+    for tid, gt, audio in fixtures(ids):
+        group = "noise" if tid in labels else "control"
+        print(f"  {tid:7s} {labels.get(tid, gt['name'])}")
+        for mode in DENOISE_MODES:
+            mains = detect_mains_hz(audio)
+            if mode == "off":
+                processed, dsp = audio, None
+            else:
+                strength = "standard" if mode == "standard+notch" else mode
+                notch = mains if mode == "standard+notch" else None
+                processed, dsp = Denoiser(
+                    DenoiseConfig(strength=strength, notch_hz=notch)
+                ).process_with_stats(audio)
+
+            events, info = model.transcribe(processed)
+            score = match_notes(gt["refs"], events, onset_tol_s=0.05)
+
+            factory = None
+            if mode != "off":
+                strength = "standard" if mode == "standard+notch" else mode
+                notch = mains if mode == "standard+notch" else None
+                factory = functools.partial(
+                    StreamingDenoiser, DenoiseConfig(strength=strength, notch_hz=notch)
+                )
+            live = run_stream(model, tid, gt, audio, 2.0, 0.25, denoiser_factory=factory)
+
+            row = {
+                "test_id": tid,
+                "group": group,
+                "condition": labels.get(tid, "クリーン（ノイズなし）"),
+                "strength": mode,
+                "n_notes": gt["n_notes"],
+                "offline": {
+                    "detected": len(events),
+                    "f1": score["f1"],
+                    "precision": score["precision"],
+                    "recall": score["recall"],
+                    "tp": score["tp"],
+                    "fp": score["fp"],
+                    "fn": score["fn"],
+                    "onset_mae_ms": score["onset_mae_ms"],
+                    "denoise_ms": None if dsp is None else dsp.compute_ms,
+                    "denoise_rtf": None if dsp is None else dsp.rtf,
+                    "input_rms_db": None if dsp is None else dsp.input_rms_db,
+                    "output_rms_db": None if dsp is None else dsp.output_rms_db,
+                    "noise_floor_db": None if dsp is None else dsp.noise_floor_db,
+                    "mean_gain_db": None if dsp is None else dsp.mean_gain_db,
+                    "tail_db": tail_preservation_db(audio, processed, gt["refs"]),
+                },
+                "live": {
+                    "f1": live["f1"],
+                    "precision": live["precision"],
+                    "recall": live["recall"],
+                    "detected": live["events"],
+                    "latency_median_ms": live["latency_median_ms"],
+                    "render_latency_p95_ms": live["render_latency_p95_ms"],
+                    "frac_within_2s": live["frac_within_2s"],
+                    "step_compute_p95_ms": live["step_compute_p95_ms"],
+                    "denoise": live["denoise"],
+                },
+            }
+            rows.append(row)
+            d = row["offline"]
+            print(
+                f"    {mode:9s} offline F1={d['f1']:.3f} (P{d['precision']:.3f}/R{d['recall']:.3f}) "
+                f"live F1={row['live']['f1']:.3f} lat={row['live']['latency_median_ms']}ms "
+                f"tail={d['tail_db']:+.1f}dB "
+                + (f"dsp={d['denoise_ms']}ms" if d["denoise_ms"] else "")
+            )
+
+    summary = {}
+    for group in ("noise", "control"):
+        for mode in DENOISE_MODES:
+            sel = [r for r in rows if r["group"] == group and r["strength"] == mode]
+            tp = sum(r["offline"]["tp"] for r in sel)
+            fp = sum(r["offline"]["fp"] for r in sel)
+            fn = sum(r["offline"]["fn"] for r in sel)
+            p = tp / (tp + fp) if tp + fp else 0.0
+            rcl = tp / (tp + fn) if tp + fn else 0.0
+            ltp = sum(r["live"]["f1"] for r in sel) / len(sel) if sel else 0.0
+            summary[f"{group}:{mode}"] = {
+                "offline_micro_f1": round(2 * p * rcl / (p + rcl), 4) if p + rcl else 0.0,
+                "offline_precision": round(p, 4),
+                "offline_recall": round(rcl, 4),
+                "live_mean_f1": round(ltp, 4),
+                "mean_latency_median_ms": round(
+                    statistics.mean([r["live"]["latency_median_ms"] for r in sel if r["live"]["latency_median_ms"]]), 1
+                )
+                if sel
+                else None,
+                "mean_denoise_ms": round(
+                    statistics.mean([r["offline"]["denoise_ms"] for r in sel if r["offline"]["denoise_ms"]]), 1
+                )
+                if any(r["offline"]["denoise_ms"] for r in sel)
+                else None,
+            }
+
+    # what the front-end filters actually do to the room noise itself
+    hum = []
+    for tid in ["T-014", "T-016", "T-017", "T-018"]:
+        gt = load_ground_truth(GT_DIR / f"{tid}.json")
+        audio, _ = load_wav(ROOT / gt["wav"], SAMPLE_RATE)
+        mains = float(gt["noise"]["hum_hz"])
+        detected = detect_mains_hz(audio)
+        base = Denoiser(DenoiseConfig(strength="standard", notch_hz=None)).process(audio)
+        notch = Denoiser(DenoiseConfig(strength="standard", notch_hz=detected)).process(audio) if detected else base
+        f1_plain = match_notes(gt["refs"], model.transcribe(base)[0], onset_tol_s=0.05)["f1"]
+        f1_notch = match_notes(gt["refs"], model.transcribe(notch)[0], onset_tol_s=0.05)["f1"]
+        hum.append(
+            {
+                "test_id": tid,
+                "hum_hz": mains,
+                "hum_detected_hz": detected,
+                "hum_db_before": band_rms_db(audio, mains - 1.0, mains + 1.0),
+                "hum_db_subtract_only": band_rms_db(base, mains - 1.0, mains + 1.0),
+                "hum_db_with_notch": band_rms_db(notch, mains - 1.0, mains + 1.0),
+                "sub25_db_before": band_rms_db(audio, 0.0, 25.0),
+                "sub25_db_after": band_rms_db(base, 0.0, 25.0),
+                "f1_no_notch": f1_plain,
+                "f1_with_notch": f1_notch,
+            }
+        )
+        print(
+            f"  hum {tid}: {mains:.0f}Hz (自動判定 {detected}) … {hum[-1]['hum_db_before']} dB → "
+            f"{hum[-1]['hum_db_subtract_only']} (減算のみ) / {hum[-1]['hum_db_with_notch']} (ノッチ併用), "
+            f"<25Hz {hum[-1]['sub25_db_before']} → {hum[-1]['sub25_db_after']} dB, "
+            f"F1 {f1_plain} → {f1_notch}"
+        )
+
+    return {
+        "rows": rows,
+        "summary": summary,
+        "hum": hum,
+        "highpass_response_db": {
+            str(f): round(float(highpass_response_db([f])[0]), 2)
+            for f in (5, 10, 20, 25, 27.5, 32.7, 50, 60, 110, 440)
+        },
+        "delay_ms": {
+            "offline": 0.0,
+            "live": round(StreamingDenoiser(DenoiseConfig()).delay_ms, 1),
+        },
+    }
+
 # --------------------------------------------------------------------------- #
 # stage: resources / cold start
 # --------------------------------------------------------------------------- #
@@ -626,15 +856,68 @@ def write_summary(results: dict) -> str:
             f"ステップ数 {ls['steps']}, イベント {ls['events']} (候補 {ls['raw_candidates']}, 統合 {ls['duplicates_dropped']}), RTF {ls['rtf']}")
         add(f"- 同一入力での再現性: {'一致' if res['deterministic'] else '不一致'} ({res['n_events_run1']} / {res['n_events_run2']} イベント)\n")
 
+    dnz = results.get("denoise")
+    if dnz:
+        add("## 5. ノイズ除去（DSP前処理）あり／なし\n")
+        add("| 音源グループ | 強さ | 全体解析 micro F1 | P | R | ライブ平均 F1 | ライブ遅延(中央値) | DSP時間(8秒あたり) | 実時間比 |")
+        add("|---|---|---|---|---|---|---|---|---|")
+        for group, label in (("noise", "ノイズあり6音源"), ("control", "クリーン4音源")):
+            for mode in DENOISE_MODES:
+                a = dnz["summary"].get(f"{group}:{mode}")
+                if not a:
+                    continue
+                rtf = (
+                    round((a["mean_denoise_ms"] or 0) / 8250.0, 4) if a.get("mean_denoise_ms") else None
+                )
+                add(
+                    f"| {label} | {MODE_LABELS.get(mode, mode)} | {a['offline_micro_f1']} | {a['offline_precision']} | "
+                    f"{a['offline_recall']} | {a['live_mean_f1']} | {a['mean_latency_median_ms']} ms | "
+                    f"{a['mean_denoise_ms'] if a.get('mean_denoise_ms') else '—'} ms | "
+                    f"{rtf if rtf else '—'} |"
+                )
+        add("")
+        add("| テスト | 部屋の条件 | 除去なし F1 | 弱 F1 | 標準 F1 | 強 F1 | 標準＋ハム F1 | ライブ(標準＋ハム) F1 | 余韻の残り(標準＋ハム) | ライブ遅延 なし→推奨 |")
+        add("|---|---|---|---|---|---|---|---|---|---|")
+        by_case = {}
+        for row in dnz["rows"]:
+            by_case.setdefault(row["test_id"], {})[row["strength"]] = row
+        for tid, modes in by_case.items():
+            m = modes.get("standard", {})
+            rec = modes.get("standard+notch", m)
+            off = modes.get("off", {})
+            add(
+                f"| {tid} | {off.get('condition', '')} | {off['offline']['f1']:.3f} | "
+                f"{modes['weak']['offline']['f1']:.3f} | {m['offline']['f1']:.3f} | "
+                f"{modes['strong']['offline']['f1']:.3f} | {rec['offline']['f1']:.3f} | "
+                f"{rec['live']['f1']:.3f} | {rec['offline']['tail_db']:+.1f} dB | "
+                f"{off['live']['latency_median_ms']} → {rec['live']['latency_median_ms']} ms |"
+            )
+        add("")
+        add("### 前段フィルタの効果（ハム・超低域）\n")
+        add("| テスト | ハム | 自動判定 | ハム成分 除去前 | 減算のみ | ＋ノッチ | 25Hz未満 除去前→後 | F1 ノッチなし→あり |")
+        add("|---|---|---|---|---|---|---|---|")
+        for h in dnz["hum"]:
+            add(
+                f"| {h['test_id']} | {h['hum_hz']:.0f} Hz | {h['hum_detected_hz'] or 'なし'} Hz | "
+                f"{h['hum_db_before']} dB | {h['hum_db_subtract_only']} dB | {h['hum_db_with_notch']} dB | "
+                f"{h['sub25_db_before']} → {h['sub25_db_after']} dB | "
+                f"{h['f1_no_notch']:.3f} → {h['f1_with_notch']:.3f} |"
+            )
+        add("")
+        hp = dnz.get("highpass_response_db", {})
+        add("25Hz ハイパスの振幅応答: " + " / ".join(f"{f} Hz: {v} dB" for f, v in hp.items()) + "\n")
+        add(f"- ライブ経路のDSP遅延（フレーム長1024＋ホップ256 @22.05kHz）: **{dnz['delay_ms']['live']} ms**")
+        add("- 最終解析（ファイル全体）は遅延なし\n")
+
     return "\n".join(lines) + "\n"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", choices=["accuracy", "stream", "baselines", "resources"], action="append")
+    ap.add_argument("--only", choices=["accuracy", "stream", "baselines", "denoise", "resources"], action="append")
     ap.add_argument("--out", default=str(RESULTS_DIR / "phase0_results.json"))
     args = ap.parse_args()
-    stages = args.only or ["resources", "accuracy", "baselines", "stream"]
+    stages = args.only or ["resources", "accuracy", "baselines", "stream", "denoise"]
 
     if not MODEL_PATH.exists():
         print(f"model not found: {MODEL_PATH}\nrun scripts/fetch_basic_pitch_model.py first")
@@ -662,6 +945,9 @@ def main() -> int:
     if "baselines" in stages:
         print("[baselines] spectral peaks / NMF")
         results["baselines"] = stage_baselines()
+    if "denoise" in stages:
+        print("[denoise] noise removal off/weak/standard/strong")
+        results["denoise"] = stage_denoise(model)
     if "stream" in stages:
         print("[stream] chunked basic pitch")
         results["stream"] = stage_stream(model)

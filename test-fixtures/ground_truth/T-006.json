@@ -6,6 +6,7 @@
   "duration_s": 7.5,
   "level_db": -3.0,
   "noise_snr_db": null,
+  "noise": null,
   "wav": "test-fixtures/wav/T-006_chords_4.wav",
   "sha256": "60aba9a2f855b48d39f48cebdb97671183b80e2311cd3d4f15f3a2f652ec0497",
   "notes": [

@@ -6,6 +6,7 @@
   "duration_s": 7.05,
   "level_db": -3.0,
   "noise_snr_db": null,
+  "noise": null,
   "wav": "test-fixtures/wav/T-008_left_hand.wav",
   "sha256": "65a09fcf2e73afd0ce66d29a3775fdc1590f9b8ca461e2a0fa5d315a1e5e9415",
   "notes": [

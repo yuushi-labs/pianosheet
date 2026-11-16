@@ -6,6 +6,7 @@
   "duration_s": 6.5,
   "level_db": -3.0,
   "noise_snr_db": null,
+  "noise": null,
   "wav": "test-fixtures/wav/T-012_pedal.wav",
   "sha256": "4cd5e3337a3fd38d85e158c01b5536c6334e02b836ae411f7a0781251723b560",
   "notes": [
