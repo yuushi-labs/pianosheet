@@ -3,10 +3,13 @@ package com.yuushilabs.pianosheet.app
 import android.content.Context
 import androidx.room.Room
 import com.yuushilabs.pianosheet.core.audio.AudioStorage
+import com.yuushilabs.pianosheet.core.export.WavExporter
+import com.yuushilabs.pianosheet.core.inference.BasicPitchDetector
 import com.yuushilabs.pianosheet.core.inference.BasicPitchModel
 import com.yuushilabs.pianosheet.data.ProjectRepositoryImpl
 import com.yuushilabs.pianosheet.data.SettingsRepository
 import com.yuushilabs.pianosheet.data.db.AppDatabase
+import com.yuushilabs.pianosheet.domain.final.FinalTranscriber
 import com.yuushilabs.pianosheet.domain.repository.ProjectRepository
 import java.io.Closeable
 
@@ -20,7 +23,9 @@ class AppContainer(context: Context) : Closeable {
 
     val database: AppDatabase by lazy {
         Room.databaseBuilder(appContext, AppDatabase::class.java, "pianosheet.db")
-            .fallbackToDestructiveMigration()
+            // Every schema bump ships an explicit migration: a Phase 1 recording
+            // must survive the Phase 2 update (spec §5.7).
+            .addMigrations(*AppDatabase.ALL_MIGRATIONS)
             .build()
     }
 
@@ -29,6 +34,7 @@ class AppContainer(context: Context) : Closeable {
             projectDao = database.projectDao(),
             recordingAssetDao = database.recordingAssetDao(),
             noteEventDao = database.noteEventDao(),
+            scoreDao = database.scoreDao(),
         )
     }
 
@@ -36,8 +42,15 @@ class AppContainer(context: Context) : Closeable {
 
     val audioStorage: AudioStorage by lazy { AudioStorage(appContext) }
 
+    val wavExporter: WavExporter by lazy { WavExporter(appContext) }
+
     /** Loaded lazily on the inference dispatcher; the session costs a few hundred ms. */
     val basicPitchModel: BasicPitchModel by lazy { BasicPitchModel(appContext) }
+
+    /** The final analysis shares the one ONNX session with the live path. */
+    val finalTranscriber: FinalTranscriber by lazy {
+        FinalTranscriber(BasicPitchDetector(basicPitchModel))
+    }
 
     override fun close() {
         try {

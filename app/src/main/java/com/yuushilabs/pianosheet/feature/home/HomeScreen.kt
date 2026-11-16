@@ -51,10 +51,12 @@ fun HomeScreen(
     onNewRecording: () -> Unit,
     onOpenProject: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onImported: (String) -> Unit,
     viewModel: HomeViewModel = viewModel(),
 ) {
     val projects by viewModel.projects.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
+    val importedProjectId by viewModel.importedProjectId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -67,6 +69,12 @@ fun HomeScreen(
         val text = message ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(text)
         viewModel.clearMessage()
+    }
+
+    LaunchedEffect(importedProjectId) {
+        val id = importedProjectId ?: return@LaunchedEffect
+        viewModel.clearImportedProject()
+        onImported(id)
     }
 
     Scaffold(

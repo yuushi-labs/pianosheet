@@ -15,6 +15,10 @@ data class LiveConfig(
     val onsetStrengthMin: Float = 0.30f,
     val restrikeOnsetMin: Float = 0.50f,
     val guardMs: Double = 260.0,
+    /** Fade-in on the analysis copy at the very start of the take. */
+    val startupRampMs: Double = 250.0,
+    /** Onsets this early are checked for the microphone-settling artefact. */
+    val startupGuardMs: Double = 250.0,
 ) {
     val windowSamples: Long get() = Math.round(windowS * sampleRate)
     val stepSamples: Long get() = Math.round(stepS * sampleRate)

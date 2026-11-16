@@ -2,8 +2,10 @@ package com.yuushilabs.pianosheet.domain.repository
 
 import com.yuushilabs.pianosheet.domain.model.NoteEvent
 import com.yuushilabs.pianosheet.domain.model.ProjectDetail
+import com.yuushilabs.pianosheet.domain.model.ProjectStatus
 import com.yuushilabs.pianosheet.domain.model.ProjectSummary
 import com.yuushilabs.pianosheet.domain.model.RecordingInfo
+import com.yuushilabs.pianosheet.domain.score.Score
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 
@@ -24,4 +26,13 @@ interface ProjectRepository {
         file: File,
         originalFileName: String,
     ): ProjectSummary
+
+    /** Stores the finished score from the final analysis (Phase 2). */
+    suspend fun saveScore(score: Score, denoiseProfile: String?, analysisMs: Long)
+
+    suspend fun loadScore(projectId: String): Score?
+
+    suspend fun updateStatus(id: String, status: ProjectStatus, noteCount: Int)
+
+    suspend fun renameProject(id: String, title: String)
 }

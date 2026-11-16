@@ -1,5 +1,7 @@
 package com.yuushilabs.pianosheet.domain.model
 
+import com.yuushilabs.pianosheet.domain.score.Score
+
 enum class ProjectStatus(val wireName: String) {
     DRAFT("draft"),
     RECORDING("recording"),
@@ -42,4 +44,9 @@ data class ProjectDetail(
     val project: ProjectSummary,
     val recording: RecordingInfo?,
     val notes: List<NoteEvent>,
-)
+    /** Finished score, present once the final analysis has run (Phase 2). */
+    val score: Score? = null,
+) {
+    /** True when the take can be re-analysed: the raw WAV is still there. */
+    val canAnalyse: Boolean get() = !recording?.storagePath.isNullOrBlank()
+}

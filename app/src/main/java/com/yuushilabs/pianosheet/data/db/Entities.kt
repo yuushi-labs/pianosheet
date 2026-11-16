@@ -70,3 +70,33 @@ data class NoteEventEntity(
     val detector: String?,
     val staff: String?,
 )
+
+/**
+ * The finished score of a project (Phase 2).  The payload is the versioned text
+ * from `ScoreCodec`; the summary columns exist so the project list can show
+ * tempo / meter / key without decoding every score.
+ */
+@Entity(
+    tableName = "scores",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["projectId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("projectId")],
+)
+data class ScoreEntity(
+    @PrimaryKey val projectId: String,
+    val payload: String,
+    val tempoBpm: Double,
+    val timeSignature: String,
+    val keySignature: String,
+    val noteCount: Int,
+    val durationMs: Long,
+    val denoiseProfile: String?,
+    val analysisMs: Long,
+    val updatedAt: Long,
+)

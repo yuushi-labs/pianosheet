@@ -1,5 +1,6 @@
 package com.yuushilabs.pianosheet.core.inference
 
+import com.yuushilabs.pianosheet.core.dsp.StartupGuard
 import com.yuushilabs.pianosheet.domain.live.ChunkDetector
 import com.yuushilabs.pianosheet.domain.live.Detection
 import kotlin.math.min
@@ -35,7 +36,9 @@ class BasicPitchDetector(
         } else if (audio.size < modelSamples) {
             val pad = modelSamples - audio.size
             val padded = FloatArray(modelSamples)
-            audio.copyInto(padded, pad)
+            // Fading the real audio in stops the step from digital silence to the
+            // first sample from being read as a broadband attack.
+            StartupGuard.applyEdgeFade(audio, BasicPitchConstants.SAMPLE_RATE).copyInto(padded, pad)
             audio = padded
             startS -= pad.toDouble() / BasicPitchConstants.SAMPLE_RATE
         }

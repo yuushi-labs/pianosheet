@@ -22,6 +22,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +68,7 @@ fun LiveScoreScreen(
     val context = LocalContext.current
     var permissionDenied by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var followNewest by remember { mutableStateOf(true) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -157,8 +159,36 @@ fun LiveScoreScreen(
                 .padding(padding),
         ) {
             InputStatusRow(state)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "譜面",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(8.dp))
+                FilterChip(
+                    selected = followNewest,
+                    onClick = { followNewest = !followNewest },
+                    label = { Text("自動追従") },
+                )
+                if (!followNewest) {
+                    TextButton(onClick = { followNewest = true }) { Text("最新へ") }
+                }
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "左へスクロールで見返せます",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             StaffCanvas(
                 notes = state.notes,
+                followNewest = followNewest,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),

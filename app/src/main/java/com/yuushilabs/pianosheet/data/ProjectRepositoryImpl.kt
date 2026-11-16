@@ -6,7 +6,10 @@ import com.yuushilabs.pianosheet.data.db.ProjectDao
 import com.yuushilabs.pianosheet.data.db.ProjectEntity
 import com.yuushilabs.pianosheet.data.db.RecordingAssetDao
 import com.yuushilabs.pianosheet.data.db.RecordingAssetEntity
+import com.yuushilabs.pianosheet.data.db.ScoreDao
+import com.yuushilabs.pianosheet.data.db.ScoreEntity
 import com.yuushilabs.pianosheet.domain.model.NoteEvent
+import com.yuushilabs.pianosheet.domain.model.NoteOrdering
 import com.yuushilabs.pianosheet.domain.model.NoteSource
 import com.yuushilabs.pianosheet.domain.model.NoteState
 import com.yuushilabs.pianosheet.domain.model.ProjectDetail
@@ -15,6 +18,8 @@ import com.yuushilabs.pianosheet.domain.model.ProjectSummary
 import com.yuushilabs.pianosheet.domain.model.RecordingInfo
 import com.yuushilabs.pianosheet.domain.model.Staff
 import com.yuushilabs.pianosheet.domain.repository.ProjectRepository
+import com.yuushilabs.pianosheet.domain.score.Score
+import com.yuushilabs.pianosheet.domain.score.ScoreCodec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.io.File
@@ -24,6 +29,7 @@ class ProjectRepositoryImpl(
     private val projectDao: ProjectDao,
     private val recordingAssetDao: RecordingAssetDao,
     private val noteEventDao: NoteEventDao,
+    private val scoreDao: ScoreDao,
 ) : ProjectRepository {
 
     override fun observeProjects(): Flow<List<ProjectSummary>> =
@@ -32,11 +38,14 @@ class ProjectRepositoryImpl(
     override suspend fun loadProject(id: String): ProjectDetail? {
         val project = projectDao.find(id) ?: return null
         val asset = recordingAssetDao.findByProject(id)
-        val notes = noteEventDao.findByProject(id).map { it.toNoteEvent() }
+        // Onset order, then pitch: the provisional list must read like the music
+        // even when the live engine numbered the events out of order.
+        val notes = NoteOrdering.chronological(noteEventDao.findByProject(id).map { it.toNoteEvent() })
         return ProjectDetail(
             project = project.toSummary(),
             recording = asset?.toRecordingInfo(),
             notes = notes,
+            score = loadScore(id),
         )
     }
 
@@ -64,11 +73,11 @@ class ProjectRepositoryImpl(
         )
         noteEventDao.deleteByProject(project.id)
         noteEventDao.insertAll(
-            events.map { event ->
+            NoteOrdering.chronological(events).mapIndexed { index, event ->
                 NoteEventEntity(
                     id = event.id,
                     projectId = project.id,
-                    sequence = event.sequence,
+                    sequence = index,
                     pitchMidi = event.pitchMidi,
                     onsetMs = event.onsetMs,
                     durationMs = event.durationMs,
@@ -118,6 +127,38 @@ class ProjectRepositoryImpl(
             ),
         )
         return summary
+    }
+
+    override suspend fun saveScore(score: Score, denoiseProfile: String?, analysisMs: Long) {
+        val now = System.currentTimeMillis()
+        scoreDao.upsert(
+            ScoreEntity(
+                projectId = score.projectId,
+                payload = ScoreCodec.encode(score),
+                tempoBpm = score.tempoBpm,
+                timeSignature = score.timeSignature.label,
+                keySignature = score.keySignature.describeJa(),
+                noteCount = score.noteCount,
+                durationMs = (score.durationSec * 1000).toLong(),
+                denoiseProfile = denoiseProfile,
+                analysisMs = analysisMs,
+                updatedAt = now,
+            ),
+        )
+        updateStatus(score.projectId, ProjectStatus.COMPLETED, score.noteCount)
+    }
+
+    override suspend fun loadScore(projectId: String): Score? {
+        val entity = scoreDao.findByProject(projectId) ?: return null
+        return runCatching { ScoreCodec.decode(entity.payload) }.getOrNull()
+    }
+
+    override suspend fun updateStatus(id: String, status: ProjectStatus, noteCount: Int) {
+        projectDao.updateStatus(id, status.wireName, noteCount, System.currentTimeMillis())
+    }
+
+    override suspend fun renameProject(id: String, title: String) {
+        projectDao.rename(id, title, System.currentTimeMillis())
     }
 
     private fun ProjectEntity.toSummary() = ProjectSummary(

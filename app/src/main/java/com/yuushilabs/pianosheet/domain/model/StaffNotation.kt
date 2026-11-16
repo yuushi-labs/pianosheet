@@ -17,17 +17,27 @@ object StaffNotation {
     const val BASS_TOP_STEP = 8
     const val MIDDLE_C = 60
 
+    val LETTER_NAMES = arrayOf("C", "D", "E", "F", "G", "A", "B")
+
+    /** Diatonic index of the bottom line of each staff (used by spelled notes). */
+    val trebleBottomDiatonic: Int get() = diatonicIndex(TREBLE_BOTTOM_LINE_MIDI)
+    val bassBottomDiatonic: Int get() = diatonicIndex(BASS_BOTTOM_LINE_MIDI)
+
+    /** Letter index (C=0 … B=6) for a pitch class. */
+    fun letterForSemitone(semitone: Int): Int =
+        LETTER_FOR_SEMITONE[((semitone % 12) + 12) % 12]
+
+    /** Position of an already spelled note (letter + octave) on a staff. */
+    fun stepOfDiatonic(diatonicIndex: Int, staff: Staff): Int =
+        diatonicIndex - if (staff == Staff.TREBLE) trebleBottomDiatonic else bassBottomDiatonic
+
     /** Absolute diatonic index: C0 = 0, D0 = 1, … B0 = 6, C1 = 7 … */
     fun diatonicIndex(midi: Int): Int {
         val octave = midi / 12 - 1
         return octave * 7 + LETTER_FOR_SEMITONE[((midi % 12) + 12) % 12]
     }
 
-    fun stepOnStaff(midi: Int, clef: Staff): Int =
-        when (clef) {
-            Staff.TREBLE -> diatonicIndex(midi) - diatonicIndex(TREBLE_BOTTOM_LINE_MIDI)
-            Staff.BASS -> diatonicIndex(midi) - diatonicIndex(BASS_BOTTOM_LINE_MIDI)
-        }
+    fun stepOnStaff(midi: Int, clef: Staff): Int = stepOfDiatonic(diatonicIndex(midi), clef)
 
     /** Provisional clef split: middle C and above on the treble staff. */
     fun clefFor(midi: Int): Staff = if (midi >= MIDDLE_C) Staff.TREBLE else Staff.BASS

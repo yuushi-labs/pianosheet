@@ -28,7 +28,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    /** SCR-001 "音声ファイルをアップロード": import now, analysis arrives in Phase 2. */
+    /** Set once an imported file has a project, so the screen can start the analysis. */
+    private val _importedProjectId = MutableStateFlow<String?>(null)
+    val importedProjectId: StateFlow<String?> = _importedProjectId.asStateFlow()
+
+    /** SCR-001 "音声ファイルをアップロード": import, then analyse (Phase 2). */
     fun importAudio(uri: Uri) {
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -43,21 +47,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         file = file,
                         originalFileName = name,
                     )
-                    name
+                    id
                 }.onFailure { Log.w(TAG, "import failed", it) }.getOrNull()
             }
             _message.value = if (result == null) {
                 "音声ファイルを取り込めませんでした"
             } else {
-                "「$result」を取り込みました。最終解析はPhase 2で追加します。"
+                "取り込みました。楽譜を作成します…"
             }
+            if (result != null) _importedProjectId.value = result
         }
+    }
+
+    fun clearImportedProject() {
+        _importedProjectId.value = null
     }
 
     fun clearMessage() {
         _message.value = null
     }
-
     companion object {
         private const val TAG = "HomeViewModel"
     }

@@ -1,5 +1,6 @@
 package com.yuushilabs.pianosheet.domain.live
 
+import com.yuushilabs.pianosheet.core.dsp.StartupGuard
 import com.yuushilabs.pianosheet.domain.model.NoteEvent
 import kotlin.math.abs
 import kotlin.math.min
@@ -49,6 +50,10 @@ class LiveTranscriptionEngine(
     var lowConfidenceDropped: Int = 0
         private set
 
+    /** Onsets in the first quarter second that looked like microphone artefacts. */
+    var startupSuppressed: Int = 0
+        private set
+
     private var lastComputeMs = 0.0
 
     val detectorName: String get() = detector.name
@@ -67,15 +72,26 @@ class LiveTranscriptionEngine(
         staleFiltered = 0
         weakDropped = 0
         lowConfidenceDropped = 0
+        startupSuppressed = 0
         lastComputeMs = 0.0
     }
 
     /** Push audio (already at [LiveConfig.sampleRate]); returns events this call added. */
     fun pushAudio(chunk: FloatArray): List<NoteEvent> {
         if (chunk.isEmpty()) return emptyList()
-        chunks.addLast(chunk)
-        chunksLength += chunk.size
-        absoluteSamples += chunk.size
+        // The take's own WAV is written elsewhere, untouched; this is the analysis
+        // copy, whose first quarter second is faded in so the microphone settling
+        // (and the zero-padded window edge) cannot sound like a key strike.
+        val position = absoluteSamples
+        val prepared = StartupGuard.applyStartupTreatment(
+            audio = chunk,
+            startSample = position,
+            sampleRate = config.sampleRate,
+            rampMs = config.startupRampMs,
+        )
+        chunks.addLast(prepared)
+        chunksLength += prepared.size
+        absoluteSamples += prepared.size
         trim()
 
         val emitted = ArrayList<NoteEvent>()
@@ -166,6 +182,16 @@ class LiveTranscriptionEngine(
             }
             if (candidate.confidence < config.confidenceFloor) {
                 lowConfidenceDropped += 1
+                continue
+            }
+            if (StartupGuard.isStartupArtifact(
+                    onsetS = candidate.onsetS,
+                    confidence = candidate.confidence,
+                    onsetStrength = candidate.onsetStrength,
+                    guardMs = config.startupGuardMs,
+                )
+            ) {
+                startupSuppressed += 1
                 continue
             }
             candidates.add(candidate)
