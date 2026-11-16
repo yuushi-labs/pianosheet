@@ -1,0 +1,76 @@
+{
+  "test_id": "T-007",
+  "name": "right_hand",
+  "description": "右手のみ（C5〜A5の旋律）",
+  "sample_rate": 44100,
+  "duration_s": 7.25,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-007_right_hand.wav",
+  "sha256": "7f7646cbb600c3c0a16fe47bde48416878ad621c5512af603a1cc6e39f5f65cf",
+  "notes": [
+    {
+      "pitch_midi": 72,
+      "onset_s": 0.3,
+      "offset_s": 0.65,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 0.75,
+      "offset_s": 1.1,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 1.2,
+      "offset_s": 1.55,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 77,
+      "onset_s": 1.65,
+      "offset_s": 2.0,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 79,
+      "onset_s": 2.1,
+      "offset_s": 2.45,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 81,
+      "onset_s": 2.55,
+      "offset_s": 2.9,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 79,
+      "onset_s": 3.0,
+      "offset_s": 3.35,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 77,
+      "onset_s": 3.45,
+      "offset_s": 3.8,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 3.9,
+      "offset_s": 4.25,
+      "velocity": 0.65,
+      "pedal": false
+    }
+  ]
+}

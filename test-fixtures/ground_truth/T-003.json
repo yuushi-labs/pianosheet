@@ -1,0 +1,97 @@
+{
+  "test_id": "T-003",
+  "name": "repeated_note",
+  "description": "同じ音の連打（C4を0.28秒間隔で8回、E4を0.28秒間隔で4回）",
+  "sample_rate": 44100,
+  "duration_s": 6.96,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-003_repeated_note.wav",
+  "sha256": "511a8fefe55248477920eb88c33c098fb6c82b7f2557d632503b70f9f9c45b80",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.3,
+      "offset_s": 0.42,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.58,
+      "offset_s": 0.7,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.86,
+      "offset_s": 0.98,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 1.14,
+      "offset_s": 1.26,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 1.42,
+      "offset_s": 1.54,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 1.7,
+      "offset_s": 1.82,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 1.98,
+      "offset_s": 2.1,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 2.26,
+      "offset_s": 2.38,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 3.0,
+      "offset_s": 3.12,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 3.28,
+      "offset_s": 3.4,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 3.56,
+      "offset_s": 3.68,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 3.84,
+      "offset_s": 3.96,
+      "velocity": 0.7,
+      "pedal": false
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "test_id": "T-010",
+  "name": "fast_run",
+  "description": "速い演奏（90ms/70ms間隔の走句）",
+  "sample_rate": 44100,
+  "duration_s": 5.19,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-010_fast_run.wav",
+  "sha256": "61795e7c50f30d5d411999df70430bcbefae238a234ade4315b9846c8c87eb39",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.3,
+      "offset_s": 0.38,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 0.39,
+      "offset_s": 0.47,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 0.48,
+      "offset_s": 0.56,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 0.57,
+      "offset_s": 0.65,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 0.66,
+      "offset_s": 0.74,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 0.75,
+      "offset_s": 0.83,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 71,
+      "onset_s": 0.84,
+      "offset_s": 0.92,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 0.93,
+      "offset_s": 1.01,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 1.02,
+      "offset_s": 1.1,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 1.11,
+      "offset_s": 1.19,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 1.5,
+      "offset_s": 1.56,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 1.57,
+      "offset_s": 1.63,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 1.64,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 71,
+      "onset_s": 1.71,
+      "offset_s": 1.77,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 1.78,
+      "offset_s": 1.84,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 1.85,
+      "offset_s": 1.91,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 1.92,
+      "offset_s": 1.98,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 1.99,
+      "offset_s": 2.05,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 2.06,
+      "offset_s": 2.12,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 2.13,
+      "offset_s": 2.19,
+      "velocity": 0.6,
+      "pedal": false
+    }
+  ]
+}

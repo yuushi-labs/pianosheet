@@ -1,0 +1,685 @@
+{
+  "test_id": "T-015",
+  "name": "long_session",
+  "description": "長時間音源（和音＋旋律24秒）",
+  "sample_rate": 44100,
+  "duration_s": 26.85,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-015_long_session.wav",
+  "sha256": "96d3ec8b8ab08844dbbdd04080f9914512f3f7141a144e8d7c8007b88b276a66",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.3,
+      "offset_s": 0.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 0.3,
+      "offset_s": 0.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 0.3,
+      "offset_s": 0.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 0.35,
+      "offset_s": 0.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 1.3,
+      "offset_s": 1.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 1.3,
+      "offset_s": 1.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 1.3,
+      "offset_s": 1.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 73,
+      "onset_s": 1.35,
+      "offset_s": 1.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 2.3,
+      "offset_s": 2.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 71,
+      "onset_s": 2.3,
+      "offset_s": 2.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 2.3,
+      "offset_s": 2.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 75,
+      "onset_s": 2.35,
+      "offset_s": 2.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 3.3,
+      "offset_s": 3.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 3.3,
+      "offset_s": 3.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 3.3,
+      "offset_s": 3.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 3.35,
+      "offset_s": 3.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 4.3,
+      "offset_s": 4.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 4.3,
+      "offset_s": 4.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 4.3,
+      "offset_s": 4.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 73,
+      "onset_s": 4.35,
+      "offset_s": 4.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 55,
+      "onset_s": 5.3,
+      "offset_s": 5.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 59,
+      "onset_s": 5.3,
+      "offset_s": 5.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 5.3,
+      "offset_s": 5.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 79,
+      "onset_s": 5.35,
+      "offset_s": 5.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 6.3,
+      "offset_s": 6.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 6.3,
+      "offset_s": 6.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 6.3,
+      "offset_s": 6.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 77,
+      "onset_s": 6.35,
+      "offset_s": 6.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 7.3,
+      "offset_s": 7.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 7.3,
+      "offset_s": 7.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 7.3,
+      "offset_s": 7.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 7.35,
+      "offset_s": 7.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 8.3,
+      "offset_s": 8.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 71,
+      "onset_s": 8.3,
+      "offset_s": 8.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 8.3,
+      "offset_s": 8.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 8.35,
+      "offset_s": 8.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 9.3,
+      "offset_s": 9.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 9.3,
+      "offset_s": 9.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 9.3,
+      "offset_s": 9.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 77,
+      "onset_s": 9.35,
+      "offset_s": 9.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 10.3,
+      "offset_s": 10.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 10.3,
+      "offset_s": 10.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 10.3,
+      "offset_s": 10.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 10.35,
+      "offset_s": 10.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 55,
+      "onset_s": 11.3,
+      "offset_s": 11.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 59,
+      "onset_s": 11.3,
+      "offset_s": 11.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 11.3,
+      "offset_s": 11.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 11.35,
+      "offset_s": 11.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 12.3,
+      "offset_s": 12.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 12.3,
+      "offset_s": 12.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 12.3,
+      "offset_s": 12.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 78,
+      "onset_s": 12.35,
+      "offset_s": 12.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 13.3,
+      "offset_s": 13.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 13.3,
+      "offset_s": 13.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 13.3,
+      "offset_s": 13.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 75,
+      "onset_s": 13.35,
+      "offset_s": 13.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 14.3,
+      "offset_s": 14.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 71,
+      "onset_s": 14.3,
+      "offset_s": 14.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 14.3,
+      "offset_s": 14.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 77,
+      "onset_s": 14.35,
+      "offset_s": 14.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 15.3,
+      "offset_s": 15.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 15.3,
+      "offset_s": 15.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 15.3,
+      "offset_s": 15.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 78,
+      "onset_s": 15.35,
+      "offset_s": 15.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 16.3,
+      "offset_s": 16.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 16.3,
+      "offset_s": 16.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 16.3,
+      "offset_s": 16.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 75,
+      "onset_s": 16.35,
+      "offset_s": 16.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 55,
+      "onset_s": 17.3,
+      "offset_s": 17.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 59,
+      "onset_s": 17.3,
+      "offset_s": 17.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 17.3,
+      "offset_s": 17.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 73,
+      "onset_s": 17.35,
+      "offset_s": 17.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 18.3,
+      "offset_s": 18.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 18.3,
+      "offset_s": 18.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 18.3,
+      "offset_s": 18.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 79,
+      "onset_s": 18.35,
+      "offset_s": 18.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 19.3,
+      "offset_s": 19.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 19.3,
+      "offset_s": 19.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 19.3,
+      "offset_s": 19.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 19.35,
+      "offset_s": 19.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 20.3,
+      "offset_s": 20.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 71,
+      "onset_s": 20.3,
+      "offset_s": 20.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 20.3,
+      "offset_s": 20.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 78,
+      "onset_s": 20.35,
+      "offset_s": 20.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 21.3,
+      "offset_s": 21.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 21.3,
+      "offset_s": 21.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 21.3,
+      "offset_s": 21.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 79,
+      "onset_s": 21.35,
+      "offset_s": 21.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 22.3,
+      "offset_s": 22.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 22.3,
+      "offset_s": 22.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 22.3,
+      "offset_s": 22.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 22.35,
+      "offset_s": 22.75,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 55,
+      "onset_s": 23.3,
+      "offset_s": 23.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 59,
+      "onset_s": 23.3,
+      "offset_s": 23.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 23.3,
+      "offset_s": 23.85,
+      "velocity": 0.6,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 74,
+      "onset_s": 23.35,
+      "offset_s": 23.75,
+      "velocity": 0.7,
+      "pedal": false
+    }
+  ]
+}

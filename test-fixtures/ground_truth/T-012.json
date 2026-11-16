@@ -1,0 +1,97 @@
+{
+  "test_id": "T-012",
+  "name": "pedal",
+  "description": "ペダル使用（長い残響が重なる）",
+  "sample_rate": 44100,
+  "duration_s": 6.5,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-012_pedal.wav",
+  "sha256": "4cd5e3337a3fd38d85e158c01b5536c6334e02b836ae411f7a0781251723b560",
+  "notes": [
+    {
+      "pitch_midi": 48,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 55,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 0.3,
+      "offset_s": 0.9,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 50,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 1.1,
+      "offset_s": 1.7,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 52,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 59,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 1.9,
+      "offset_s": 2.5,
+      "velocity": 0.6,
+      "pedal": true
+    }
+  ]
+}

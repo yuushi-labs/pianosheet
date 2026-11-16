@@ -1,0 +1,69 @@
+{
+  "test_id": "T-001",
+  "name": "single_notes",
+  "description": "単音を1音ずつ（C4 E4 G4 C5 A3 A4 C3 E5）",
+  "sample_rate": 44100,
+  "duration_s": 9.85,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-001_single_notes.wav",
+  "sha256": "1403f981b4e0793f7986c609c4a375075ee395f2f41dbbaa6e7bc1776c62dd11",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.0,
+      "offset_s": 0.55,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 0.9,
+      "offset_s": 1.45,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 1.8,
+      "offset_s": 2.35,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 2.7,
+      "offset_s": 3.25,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 57,
+      "onset_s": 3.6,
+      "offset_s": 4.15,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 4.5,
+      "offset_s": 5.05,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 48,
+      "onset_s": 5.4,
+      "offset_s": 5.95,
+      "velocity": 0.65,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 76,
+      "onset_s": 6.3,
+      "offset_s": 6.85,
+      "velocity": 0.65,
+      "pedal": false
+    }
+  ]
+}

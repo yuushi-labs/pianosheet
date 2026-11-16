@@ -1,0 +1,27 @@
+{
+  "test_id": "T-002",
+  "name": "held_notes",
+  "description": "同じ音を長く保持（C4を3秒、続いてG4を2秒）",
+  "sample_rate": 44100,
+  "duration_s": 8.6,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-002_held_notes.wav",
+  "sha256": "7c9a660c5ba3d27d756ca43413bba2255e510bf30198fed2b69d7178f4514d74",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.2,
+      "offset_s": 3.2,
+      "velocity": 0.7,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 3.6,
+      "offset_s": 5.6,
+      "velocity": 0.7,
+      "pedal": false
+    }
+  ]
+}

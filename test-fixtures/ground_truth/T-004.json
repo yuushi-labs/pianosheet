@@ -1,0 +1,69 @@
+{
+  "test_id": "T-004",
+  "name": "melody_up",
+  "description": "上行メロディ（C4→C5の長音階、0.42秒間隔）",
+  "sample_rate": 44100,
+  "duration_s": 6.56,
+  "level_db": -3.0,
+  "noise_snr_db": null,
+  "wav": "test-fixtures/wav/T-004_melody_up.wav",
+  "sha256": "9f2fa05e19fb6a7e85a2f0ea0d8fc7f08623e13ad8298d56847c8e1d4a07307b",
+  "notes": [
+    {
+      "pitch_midi": 60,
+      "onset_s": 0.3,
+      "offset_s": 0.62,
+      "velocity": 0.68,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 62,
+      "onset_s": 0.72,
+      "offset_s": 1.04,
+      "velocity": 0.68,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 64,
+      "onset_s": 1.14,
+      "offset_s": 1.46,
+      "velocity": 0.68,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 65,
+      "onset_s": 1.56,
+      "offset_s": 1.88,
+      "velocity": 0.68,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 67,
+      "onset_s": 1.98,
+      "offset_s": 2.3,
+      "velocity": 0.68,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 69,
+      "onset_s": 2.4,
+      "offset_s": 2.72,
+      "velocity": 0.68,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 71,
+      "onset_s": 2.82,
+      "offset_s": 3.14,
+      "velocity": 0.68,
+      "pedal": false
+    },
+    {
+      "pitch_midi": 72,
+      "onset_s": 3.24,
+      "offset_s": 3.56,
+      "velocity": 0.68,
+      "pedal": false
+    }
+  ]
+}
