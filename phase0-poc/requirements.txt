@@ -1,0 +1,8 @@
+# Phase 0 PoC — verified versions
+# basic-pitch itself is NOT installed (see docs/phase0-report.md §1.1);
+# only the model file is taken from its wheel.
+numpy>=2.0
+scipy>=1.13        # resample_poly, argrelmax, signal.windows
+soundfile>=0.12    # WAV I/O (libsndfile wheel)
+onnxruntime>=1.18  # CPU inference for the Basic Pitch ONNX model
+psutil>=5.9        # process memory in the resource measurements
