@@ -178,8 +178,10 @@ class ScoreViewModel(
         return container.wavExporter.shareIntent(File(path), _state.value.title.ifEmpty { "PianoSheet" })
     }
 
-    fun suggestedFileName(): String =
-        container.wavExporter.suggestedFileName(_state.value.title.ifEmpty { "PianoSheet" })
+    fun suggestedFileName(): String = container.wavExporter.suggestedFileName(
+        title = _state.value.title.ifEmpty { "PianoSheet" },
+        extension = detail?.recording?.format ?: "wav",
+    )
 
     fun clearMessage() {
         _state.update { it.copy(message = null, errorMessage = null) }

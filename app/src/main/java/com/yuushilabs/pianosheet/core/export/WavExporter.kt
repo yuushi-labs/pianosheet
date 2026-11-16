@@ -18,14 +18,18 @@ import java.io.File
 class WavExporter(private val context: Context) {
 
     /** "録音 11/16 21:03" -> "録音 11-16 21-03-raw.wav" */
-    fun suggestedFileName(title: String): String {
+    fun suggestedFileName(title: String, extension: String = "wav"): String {
+        val safeExtension = extension
+            .lowercase()
+            .filter { it.isLetterOrDigit() }
+            .ifEmpty { "wav" }
         val base = title
             .replace(Regex("[\\\\/:*?\"<>|]"), "-")
             .replace("/", "-")
             .trim()
             .ifEmpty { "pianosheet" }
-        val stamped = if (base.endsWith(".wav", ignoreCase = true)) base.dropLast(4) else base
-        return "$stamped-raw.wav"
+        val withoutExtension = base.removeSuffix(".$safeExtension")
+        return "$withoutExtension-raw.$safeExtension"
     }
 
     /** Copies [source] into the location the user chose. Returns the byte count. */
@@ -49,7 +53,7 @@ class WavExporter(private val context: Context) {
                 source,
             )
             val send = Intent(Intent.ACTION_SEND).apply {
-                type = "audio/wav"
+                type = if (source.name.endsWith(".wav", ignoreCase = true)) "audio/wav" else "audio/*"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, title)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

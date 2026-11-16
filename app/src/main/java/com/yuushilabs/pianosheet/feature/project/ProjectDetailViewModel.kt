@@ -68,8 +68,10 @@ class ProjectDetailViewModel(
         return container.wavExporter.shareIntent(File(path), title)
     }
 
-    fun suggestedFileName(): String =
-        container.wavExporter.suggestedFileName(_detail.value?.project?.title ?: "PianoSheet")
+    fun suggestedFileName(): String = container.wavExporter.suggestedFileName(
+        title = _detail.value?.project?.title ?: "PianoSheet",
+        extension = _detail.value?.recording?.format ?: "wav",
+    )
 
     fun clearMessage() {
         _message.value = null

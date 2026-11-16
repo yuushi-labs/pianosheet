@@ -171,7 +171,7 @@ private fun ColumnScope.ProjectDetailContent(
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onSaveWav) { Text("生録音(WAV)を保存") }
+                OutlinedButton(onClick = onSaveWav) { Text("生録音を保存") }
                 OutlinedButton(onClick = onShareWav) { Text("共有") }
             }
         }
