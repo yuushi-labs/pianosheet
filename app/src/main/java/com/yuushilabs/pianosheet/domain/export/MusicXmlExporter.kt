@@ -321,7 +321,7 @@ object MusicXmlExporter {
         when (element) {
             is Segment -> appendChord(out, element, voice, staff, divisions)
             is RestSpan -> {
-                for (unit in restUnits(element.ticks, divisions)) {
+                for (unit in valueUnits(element.ticks, divisions)) {
                     appendRest(out, unit, voice, staff, divisions)
                 }
             }
@@ -329,33 +329,45 @@ object MusicXmlExporter {
     }
 
     private fun appendChord(out: StringBuilder, segment: Segment, voice: Int, staff: Int, divisions: Int) {
-        val type = typeFor(segment.ticks, divisions)
-        for ((index, note) in segment.notes.withIndex()) {
-            val spelling = spellingOf(note)
-            out.append("      <note>\n")
-            if (index > 0) out.append("        <chord/>\n")
-            out.append("        <pitch>\n")
-            out.append("          <step>").append(spelling.step).append("</step>\n")
-            if (spelling.alter != 0) out.append("          <alter>").append(spelling.alter).append("</alter>\n")
-            out.append("          <octave>").append(spelling.octave).append("</octave>\n")
-            out.append("        </pitch>\n")
-            out.append("        <duration>").append(segment.ticks).append("</duration>\n")
-            if (segment.tieStop) out.append("        <tie type=\"stop\"/>\n")
-            if (segment.tieStart) out.append("        <tie type=\"start\"/>\n")
-            out.append("        <voice>").append(voice).append("</voice>\n")
-            out.append("        <type>").append(type).append("</type>\n")
-            if (isDotted(segment.ticks, divisions)) out.append("        <dot/>\n")
-            note.accidental?.let { accidental ->
-                out.append("        <accidental>").append(accidentalName(accidental)).append("</accidental>\n")
+        // A clipped or odd length (say 1.25 beats) has no single note value: it
+        // is written as a quarter tied to a sixteenth, which is what a player
+        // would read and what keeps <duration> and <type> in step.
+        val units = valueUnits(segment.ticks, divisions)
+        for ((unitIndex, unitTicks) in units.withIndex()) {
+            val type = typeFor(unitTicks, divisions)
+            val dotted = isDotted(unitTicks, divisions)
+            val tieStop = segment.tieStop || unitIndex > 0
+            val tieStart = segment.tieStart || unitIndex < units.lastIndex
+            for ((noteIndex, note) in segment.notes.withIndex()) {
+                val spelling = spellingOf(note)
+                out.append("      <note>\n")
+                if (noteIndex > 0) out.append("        <chord/>\n")
+                out.append("        <pitch>\n")
+                out.append("          <step>").append(spelling.step).append("</step>\n")
+                if (spelling.alter != 0) out.append("          <alter>").append(spelling.alter).append("</alter>\n")
+                out.append("          <octave>").append(spelling.octave).append("</octave>\n")
+                out.append("        </pitch>\n")
+                out.append("        <duration>").append(unitTicks).append("</duration>\n")
+                if (tieStop) out.append("        <tie type=\"stop\"/>\n")
+                if (tieStart) out.append("        <tie type=\"start\"/>\n")
+                out.append("        <voice>").append(voice).append("</voice>\n")
+                out.append("        <type>").append(type).append("</type>\n")
+                if (dotted) out.append("        <dot/>\n")
+                // The accidental belongs on the attack only.
+                if (unitIndex == 0) {
+                    note.accidental?.let { accidental ->
+                        out.append("        <accidental>").append(accidentalName(accidental)).append("</accidental>\n")
+                    }
+                }
+                out.append("        <staff>").append(staff).append("</staff>\n")
+                if (tieStop || tieStart) {
+                    out.append("        <notations>\n")
+                    if (tieStop) out.append("          <tied type=\"stop\"/>\n")
+                    if (tieStart) out.append("          <tied type=\"start\"/>\n")
+                    out.append("        </notations>\n")
+                }
+                out.append("      </note>\n")
             }
-            out.append("        <staff>").append(staff).append("</staff>\n")
-            if (segment.tieStop || segment.tieStart) {
-                out.append("        <notations>\n")
-                if (segment.tieStop) out.append("          <tied type=\"stop\"/>\n")
-                if (segment.tieStart) out.append("          <tied type=\"start\"/>\n")
-                out.append("        </notations>\n")
-            }
-            out.append("      </note>\n")
         }
     }
 
@@ -373,34 +385,27 @@ object MusicXmlExporter {
 
     // ----------------------------------------------------------------- maths
 
-    /** Rests longest first; the remainder is one last rest of the exact length. */
-    fun restUnits(totalTicks: Int, divisions: Int): List<Int> {
+    /** Writable lengths (beats) longest first: whole … sixteenth with dots. */
+    private val UNIT_BEATS = listOf(4.0, 3.0, 2.0, 1.5, 1.0, 0.75, 0.5, 0.25)
+
+    /**
+     * Splits a length into writable values, longest first.  The remainder is kept
+     * as one final rest/note so a gap is never dropped.
+     */
+    fun valueUnits(totalTicks: Int, divisions: Int): List<Int> {
         if (totalTicks <= 0) return emptyList()
-        val whole = 4 * divisions
-        val candidates = listOf(
-            whole,
-            3 * whole / 2,
-            3 * divisions,
-            2 * divisions,
-            3 * divisions / 2,
-            divisions,
-            3 * divisions / 4,
-            divisions / 2,
-            3 * divisions / 8,
-            divisions / 4,
-            divisions / 8,
-            divisions / 16,
-        ).filter { it > 0 }.distinct().sortedDescending()
-        val result = ArrayList<Int>()
+        val units = ArrayList<Int>()
         var remaining = totalTicks
-        for (candidate in candidates) {
-            while (remaining >= candidate) {
-                result.add(candidate)
-                remaining -= candidate
+        for (value in UNIT_BEATS) {
+            val ticks = (value * divisions).roundToInt()
+            if (ticks <= 0) continue
+            while (remaining >= ticks) {
+                units.add(ticks)
+                remaining -= ticks
             }
         }
-        if (remaining > 0) result.add(remaining)
-        return result
+        if (remaining > 0) units.add(remaining)
+        return units
     }
 
     data class Spelling(val step: String, val alter: Int, val octave: Int)
