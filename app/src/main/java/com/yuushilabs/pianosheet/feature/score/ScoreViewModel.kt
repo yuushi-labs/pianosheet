@@ -193,15 +193,15 @@ class ScoreViewModel(
         container.scoreFileExporter.midiFile(score)
     }
 
-    fun musicXmlSuggestedName(): String = container.scoreFileExporter.suggestedFileName(
-        _state.value.score ?: return "PianoSheet.musicxml",
-        MusicXmlExporter.FILE_EXTENSION,
-    )
+    fun musicXmlSuggestedName(): String {
+        val score = _state.value.score ?: return "PianoSheet.musicxml"
+        return container.scoreFileExporter.suggestedFileName(score, MusicXmlExporter.FILE_EXTENSION)
+    }
 
-    fun midiSuggestedName(): String = container.scoreFileExporter.suggestedFileName(
-        _state.value.score ?: return "PianoSheet.mid",
-        MidiExporter.FILE_EXTENSION,
-    )
+    fun midiSuggestedName(): String {
+        val score = _state.value.score ?: return "PianoSheet.mid"
+        return container.scoreFileExporter.suggestedFileName(score, MidiExporter.FILE_EXTENSION)
+    }
 
     private fun saveExport(uri: Uri, label: String, build: (Score) -> Result<File>) {
         val score = _state.value.score ?: return
@@ -212,8 +212,8 @@ class ScoreViewModel(
             _state.update {
                 it.copy(
                     message = result.fold(
-                        onSuccess = { bytes -> "${'$'}label を保存しました（${'$'}{bytes / 1024} KB）" },
-                        onFailure = { error -> "${'$'}label を保存できませんでした: ${'$'}{error.message ?: "原因不明"}" },
+                        onSuccess = { bytes -> label + " を保存しました（" + (bytes / 1024) + " KB）" },
+                        onFailure = { error -> label + " を保存できませんでした: " + (error.message ?: "原因不明") },
                     ),
                 )
             }
@@ -223,13 +223,13 @@ class ScoreViewModel(
     private fun shareExport(label: String, mimeType: String, build: (Score) -> Result<File>): Intent? {
         val score = _state.value.score ?: return null
         val file = build(score).getOrNull() ?: run {
-            _state.update { it.copy(message = "${'$'}label を作成できませんでした") }
+            _state.update { it.copy(message = label + " を作成できませんでした") }
             return null
         }
         val title = _state.value.title.ifEmpty { "PianoSheet" }
-        val intent = container.scoreFileExporter.shareIntent(file, mimeType, title, "${'$'}label を共有")
+        val intent = container.scoreFileExporter.shareIntent(file, mimeType, title, label + " を共有")
         if (intent == null) {
-            _state.update { it.copy(message = "${'$'}label を共有できませんでした") }
+            _state.update { it.copy(message = label + " を共有できませんでした") }
         }
         return intent
     }
