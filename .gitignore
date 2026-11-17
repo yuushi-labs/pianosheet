@@ -40,3 +40,6 @@ app/build/
 app/.cxx/
 .kotlin/
 local.properties
+
+# PTI-ONNX（94.1MB）はAPKには同梱するが、リポジトリには入れない（取得は tools/fetch_pti_model.py）
+app/src/main/assets/models/piano-notes-v1.onnx

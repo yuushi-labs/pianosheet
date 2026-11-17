@@ -168,6 +168,15 @@ private fun ColumnScope.ProjectDetailContent(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (score != null) {
+                    // Which engine produced this score: PTI-ONNX, or Basic Pitch
+                    // because the PTI pass could not run on this device.
+                    Text(
+                        text = "解析エンジン: ${engineLabel(score.detector)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -278,3 +287,11 @@ private fun NoteRow(note: NoteEvent, displayIndex: Int) {
 private fun scoreLine(score: Score): String =
     "♩=${score.tempoBpm.toInt()} ・ ${score.timeSignature.label} ・ " +
         "${score.keySignature.nameJa()} ・ 音符${score.noteCount} ・ ${"%.1f".format(score.durationSec)} 秒"
+
+/** The engine id stored with the score, in words. */
+internal fun engineLabel(detector: String): String = when {
+    detector.startsWith("pti") -> "PTI-ONNX（ピアノ専用）"
+    detector.startsWith("basic_pitch") -> "Basic Pitch"
+    detector == "fake_detector" -> "テスト用"
+    else -> detector
+}

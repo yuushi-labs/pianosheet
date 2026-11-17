@@ -162,6 +162,16 @@ fun AnalyzeScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                state.engineFallback ?: "解析エンジン: PTI-ONNX（ピアノ専用・端末内）",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (state.engineFallback != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+            )
 
             Spacer(Modifier.height(26.dp))
             StageRow(FinalStage.PREPARING, state)

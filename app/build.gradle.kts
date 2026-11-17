@@ -1,3 +1,6 @@
+import java.net.URI
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,8 +15,8 @@ android {
         applicationId = "com.yuushilabs.pianosheet"
         minSdk = 29
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.3.1-phase2"
+        versionCode = 7
+        versionName = "0.4.0-phase2"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -48,7 +51,9 @@ android {
     }
 
     // The ONNX weights are read by ONNX Runtime; keep them stored uncompressed so
-    // the runtime can map them instead of copying a compressed stream.
+    // the runtime can map them instead of copying a compressed stream.  This
+    // matters more for the 94 MB PTI model: compressing it would cost ~30 s of
+    // install time and force a full decompression into memory at load.
     androidResources {
         noCompress += "onnx"
     }
@@ -97,4 +102,50 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
+}
+
+/**
+ * PTI weights: 94.1 MB, not committed (the repository would grow past what a
+ * clone/push can carry), fetched once into assets and checked against the
+ * published SHA-256.  `-PskipPtiModel=true` builds an APK without them, which
+ * the app survives by falling back to Basic Pitch.
+ */
+val ptiModelFile = layout.projectDirectory.file("src/main/assets/models/piano-notes-v1.onnx").asFile
+val ptiModelUrl = "https://huggingface.co/Clement11800/pianino-model/resolve/main/piano-notes-v1.onnx"
+val ptiModelSha256 = "9e33ffc0382fb023e0b1aac2abd0c3cb26a5d56fbcc246d7f2c0fc33c569f2ba"
+val ptiModelBytes = 98_689_388L
+val skipPtiModel = (project.findProperty("skipPtiModel") as String?)?.toBoolean() ?: false
+
+val fetchPtiModel by tasks.registering {
+    group = "build"
+    description = "Download the PTI-ONNX model into assets if it is missing or the wrong size."
+    val target = ptiModelFile
+    val url = ptiModelUrl
+    val expectedSha = ptiModelSha256
+    val expectedBytes = ptiModelBytes
+    val skip = skipPtiModel
+    onlyIf { !skip && (!target.exists() || target.length() != expectedBytes) }
+    doLast {
+        target.parentFile.mkdirs()
+        val temp = File(target.parentFile, target.name + ".part")
+        logger.lifecycle("fetching the PTI model: $url")
+        URI(url).toURL().openStream().use { input ->
+            temp.outputStream().use { output -> input.copyTo(output, 1 shl 16) }
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(temp.readBytes()).joinToString("") { "%02x".format(it) }
+        if (temp.length() != expectedBytes || digest != expectedSha) {
+            temp.delete()
+            throw GradleException(
+                "PTI model download did not match: ${temp.length()} bytes, sha256 $digest"
+            )
+        }
+        if (target.exists()) target.delete()
+        temp.renameTo(target)
+        logger.lifecycle("PTI model ready: ${target.length()} bytes")
+    }
+}
+
+if (!skipPtiModel) {
+    tasks.named("preBuild") { dependsOn(fetchPtiModel) }
 }

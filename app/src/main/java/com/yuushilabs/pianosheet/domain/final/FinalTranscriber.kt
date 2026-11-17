@@ -46,6 +46,8 @@ data class FinalAnalysisOptions(
     val humAutoDetect: Boolean = true,
     val minTempoBpm: Double = 50.0,
     val maxTempoBpm: Double = 200.0,
+    /** Use the final engine (PTI-ONNX) when one is wired in; else Basic Pitch only. */
+    val useFinalEngine: Boolean = true,
 )
 
 data class FinalTranscription(
@@ -69,6 +71,14 @@ data class FinalTranscription(
     val analysisMs: Long,
     val audioDurationSec: Double,
     val sampleRate: Int,
+    /** Engine that produced the notes: `pti_onnx` or `basic_pitch_onnx`. */
+    val engineId: String = "basic_pitch_onnx",
+    /** Human-readable engine name for SCR-003. */
+    val engineLabel: String = "Basic Pitch",
+    /** Why the final engine was not used, when it was skipped (shown to the user). */
+    val engineFallback: String? = null,
+    /** PSI region count (PTI) / the window count of the Basic Pitch pass. */
+    val ptiChunks: Int = 0,
 )
 
 /**
@@ -84,6 +94,8 @@ data class FinalTranscription(
 class FinalTranscriber(
     private val detector: ChunkDetector,
     private val targetSampleRate: Int = 22050,
+    /** PTI-ONNX for the final pass; null keeps the Basic Pitch path only. */
+    private val finalEngine: FinalNoteEngine? = null,
 ) {
 
     fun transcribe(
@@ -131,6 +143,43 @@ class FinalTranscriber(
         )
         onProgress(FinalProgress(FinalStage.PREPARING, 0.30, "解析の準備ができました"))
 
+        // The final engine (PTI-ONNX) hears the whole take itself: 10 s windows,
+        // 5 s hop, middle 50 % stitched.  Anything it throws — a failed session,
+        // an OutOfMemoryError on a small device — falls back to the Basic Pitch
+        // pass below, and the score records which engine ran.
+        var engineId = detector.name
+        var engineLabel = ENGINE_LABEL_BASIC
+        var engineFallback: String? = null
+        var engineNotes: List<NoteEvent>? = null
+        var engineChunks = 0
+        if (finalEngine != null && options.useFinalEngine) {
+            engineLabel = finalEngine.displayName
+            try {
+                val result = finalEngine.notes(prepared, targetSampleRate, shouldCancel) { done, total ->
+                    val fraction = 0.30 + 0.55 * (done.toDouble() / total.coerceAtLeast(1))
+                    onProgress(
+                        FinalProgress(
+                            FinalStage.TRANSCRIBING,
+                            fraction.coerceIn(0.30, 0.85),
+                            "音符を書き起こしています（$done/$total）",
+                        ),
+                    )
+                }
+                engineNotes = result.notes
+                engineId = finalEngine.id
+                engineChunks = result.chunkCount
+            } catch (cancelled: AnalysisCancelledException) {
+                throw cancelled
+            } catch (interrupted: InterruptedException) {
+                throw AnalysisCancelledException()
+            } catch (error: Throwable) {
+                // OutOfMemoryError is an Error, not an Exception: catch Throwable
+                // on purpose so a 94 MB model on a small device degrades instead
+                // of losing the take.
+                engineFallback = describeEngineFailure(error)
+            }
+        }
+
         val windowLength = WINDOW_SAMPLES
         val hop = maxOf(1, (options.windowHopS * targetSampleRate).toInt())
         val windowStarts = windowStarts(prepared.size, windowLength, hop)
@@ -138,6 +187,10 @@ class FinalTranscriber(
         var suppressed = 0
 
         for ((index, start) in windowStarts.withIndex()) {
+            // The PTI pass already heard the whole take; running Basic Pitch over
+            // every 2 s window as well would only waste battery and time.
+            if (engineNotes != null) break
+
             val end = min(start + windowLength, prepared.size)
             val window = prepared.copyOfRange(start, end)
             val windowStartS = start.toDouble() / targetSampleRate
@@ -180,18 +233,32 @@ class FinalTranscriber(
         }
 
         onProgress(FinalProgress(FinalStage.FINISHING, 0.88, "楽譜を仕上げています"))
-        val mergedResult = FinalNoteMerger.mergeDetailed(results, toleranceMs = options.mergeToleranceMs)
-        // v1.4: a high note that carries none of its own 2nd/3rd partial is one
-        // spectral line of a lower note's 8th partial, not a key.  The check reads
-        // the untouched take (not the denoised copy the model heard), because the
-        // denoiser's noise subtraction can hollow out exactly the partials it looks
-        // for; the clock is the same, so onsets still line up.
-        val harmonic = HarmonicRealnessFilter.apply(
-            notes = mergedResult.notes,
-            audio = resampled,
-            settings = HarmonicRealnessFilter.Settings(sampleRate = targetSampleRate),
-        )
-        val merged = harmonic.kept
+        var merged: List<NoteEvent>
+        var overtoneDropped = 0
+        var shortDropped = 0
+        var harmonicSuppressed = 0
+        var harmonicExamined = 0
+        val engineNotesFinal = engineNotes
+        if (engineNotesFinal != null) {
+            merged = engineNotesFinal
+        } else {
+            val mergedResult = FinalNoteMerger.mergeDetailed(results, toleranceMs = options.mergeToleranceMs)
+            // v1.4: a high note that carries none of its own 2nd/3rd partial is one
+            // spectral line of a lower note's 8th partial, not a key.  The check reads
+            // the untouched take (not the denoised copy the model heard), because the
+            // denoiser's noise subtraction can hollow out exactly the partials it looks
+            // for; the clock is the same, so onsets still line up.
+            val harmonic = HarmonicRealnessFilter.apply(
+                notes = mergedResult.notes,
+                audio = resampled,
+                settings = HarmonicRealnessFilter.Settings(sampleRate = targetSampleRate),
+            )
+            merged = harmonic.kept
+            overtoneDropped = mergedResult.overtoneDropped
+            shortDropped = mergedResult.shortDropped
+            harmonicSuppressed = harmonic.dropped.size
+            harmonicExamined = harmonic.examined
+        }
         val correlation = correlate(merged, liveEvents)
         val audioDurationSec = prepared.size.toDouble() / targetSampleRate
 
@@ -212,7 +279,7 @@ class FinalTranscriber(
                 minTempoBpm = options.minTempoBpm,
                 maxTempoBpm = options.maxTempoBpm,
             ),
-            detector = detector.name,
+            detector = engineId,
             liveMatched = correlation.matched,
             analysisOnly = correlation.analysisOnly,
             liveOnly = correlation.liveOnly,
@@ -225,16 +292,27 @@ class FinalTranscriber(
             denoiseProfile = config?.describeProfile(denoiser.lastToneNotchesHz),
             humHz = humHz,
             toneNotchesHz = denoiser.lastToneNotchesHz,
-            windowCount = windowStarts.size,
+            windowCount = if (engineNotes != null) engineChunks else windowStarts.size,
             startupSuppressed = suppressed,
-            overtoneSuppressed = mergedResult.overtoneDropped,
-            shortSuppressed = mergedResult.shortDropped,
-            harmonicSuppressed = harmonic.dropped.size,
-            harmonicExamined = harmonic.examined,
+            overtoneSuppressed = overtoneDropped,
+            shortSuppressed = shortDropped,
+            harmonicSuppressed = harmonicSuppressed,
+            harmonicExamined = harmonicExamined,
             analysisMs = (System.nanoTime() - startedAt) / 1_000_000L,
             audioDurationSec = audioDurationSec,
             sampleRate = targetSampleRate,
+            engineId = engineId,
+            engineLabel = engineLabel,
+            engineFallback = engineFallback,
+            ptiChunks = if (engineNotes != null) engineChunks else 0,
         )
+    }
+
+    /** A short, user-facing reason the final engine was not used. */
+    private fun describeEngineFailure(error: Throwable): String = when (error) {
+        is OutOfMemoryError -> "メモリが足りないため Basic Pitch で解析しました"
+        is EngineUnavailableException -> "${error.message}（Basic Pitch で解析しました）"
+        else -> "PTI モデルを読み込めなかったため Basic Pitch で解析しました"
     }
 
     data class Correlation(val matched: Int, val analysisOnly: Int, val liveOnly: Int)
@@ -282,6 +360,9 @@ class FinalTranscriber(
 
     companion object {
         const val WINDOW_SAMPLES = 43844 // Basic Pitch: 2 s at 22.05 kHz minus one hop
+
+        /** Label for SCR-003 when Basic Pitch produced the notes. */
+        const val ENGINE_LABEL_BASIC = "Basic Pitch（フォールバック）"
 
         /** Number of analysis windows for a duration, for the progress UI. */
         fun windowCount(durationSec: Double, windowHopS: Double = 1.0): Int =

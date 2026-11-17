@@ -223,6 +223,59 @@ Copyright 2022 Spotify AB
    limitations under the License.
 ```
 
+## PTI（ByteDance piano_transcription）— Creative Commons Attribution 4.0 International（CC BY 4.0）
+
+- 対象: `app/src/main/assets/models/piano-notes-v1.onnx`（最終解析に同梱する学習済みモデル）、
+  および `core/inference/PtiPostProcessor.kt` / `PtiOnnxTranscriber.kt`
+  （`piano_transcription_inference` の `RegressionPostProcessor` と
+  `PianoTranscription.enframe/deframe` のKotlin移植）。
+- 原著論文: Qiuqiang Kong, Bochen Li, Xuchen Song, Yuan Wan, Yuxuan Wang,
+  "High-resolution Piano Transcription with Pedals by Regressing Onset and Offset Times",
+  IEEE/ACM Transactions on Audio, Speech, and Language Processing (TASLP), vol. 29, 2021.
+  https://doi.org/10.1109/TASLP.2021.3121231
+- 原著コード: https://github.com/qiuqiangkong/piano_transcription_inference （MIT License）
+- 学習済み重みの配布元: Zenodo record 4034264（`note_pedal` チェックポイント、CC BY 4.0）。
+- ONNX変換: `Clement11800/pianino-model`（Hugging Face）の `piano-notes-v1.onnx` を
+  そのまま同梱。変換元は上記チェックポイントの音符サブモデル（ペダル枝を除く）。
+  https://huggingface.co/Clement11800/pianino-model
+- SHA-256: `9e33ffc0382fb023e0b1aac2abd0c3cb26a5d56fbcc246d7f2c0fc33c569f2ba`（98,689,388 bytes）
+- 変更: 重みは無改変。復号処理をKotlinへ移植し、音符の終わりをキー活動の減衰点まで
+  詰める後処理（`decayTrimRatio`）を追加している（`docs/phase3-pti-report.md`）。
+- 同梱の理由: 録音後の最終解析を端末内で高精度に行うため（オフライン、サーバー送信なし）。
+  CC BY 4.0 は原作者のクレジット表示を条件に再配布・商用利用を認めている。
+
+以下に CC BY 4.0 の要旨（法的効力を持つのはライセンス正文）を置く。
+
+```
+Creative Commons Attribution 4.0 International Public License
+
+By exercising the Licensed Rights, You accept and agree to be bound by the terms
+and conditions of this Creative Commons Attribution 4.0 International Public License.
+
+Section 2 – Scope.
+  (a) Subject to the terms and conditions of this Public License, the Licensor hereby
+      grants You a worldwide, royalty-free, non-sublicensable, non-exclusive,
+      irrevocable license to exercise the Licensed Rights in the Licensed Material to:
+        reproduce and Share the Licensed Material, in whole or in part; and
+        produce, reproduce, and Share Adapted Material.
+  (b) Attribution.
+      1. If You Share the Licensed Material (including in modified form), You must:
+         A. retain the following if it is supplied by the Licensor with the Licensed
+            Material: identification of the creator(s) of the Licensed Material and any
+            others designated to receive attribution, a copyright notice, a notice that
+            refers to this Public License, a notice that refers to the disclaimer of
+            warranties, and a URI or hyperlink to the Licensed Material to the extent
+            reasonably practicable;
+         B. indicate if You modified the Licensed Material and retain an indication of
+            any previous modifications; and
+         C. indicate the Licensed Material is licensed under this Public License, and
+            include the text of, or the URI or hyperlink to, this Public License.
+
+No warranties are given. The license may not give you all of the permissions
+necessary for your intended use. Full text:
+https://creativecommons.org/licenses/by/4.0/legalcode
+```
+
 ## ONNX Runtime（Microsoft）— MIT License
 
 - 依存: `com.microsoft.onnxruntime:onnxruntime-android`

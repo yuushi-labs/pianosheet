@@ -38,6 +38,10 @@ data class AnalyzeUiState(
     val suppressedStartup: Int = 0,
     val noteCount: Int = 0,
     val denoiseProfile: String? = null,
+    /** Engine that produced the notes, e.g. "PTI-ONNX（ピアノ専用）". */
+    val engineLabel: String = "",
+    /** Why the PTI pass was skipped, when it was. */
+    val engineFallback: String? = null,
 ) {
     val percent: Int get() = (fraction * 100).toInt().coerceIn(0, 100)
 }
@@ -141,6 +145,8 @@ class AnalyzeViewModel(
                         suppressedStartup = result.startupSuppressed,
                         noteCount = result.score.noteCount,
                         denoiseProfile = result.denoiseProfile,
+                        engineLabel = result.engineLabel,
+                        engineFallback = result.engineFallback,
                     )
                 }
             } catch (error: AnalysisCancelledException) {
