@@ -229,3 +229,13 @@ Copyright 2022 Spotify AB
 - 出典: https://github.com/microsoft/onnxruntime
 - アプリのコードからはONNX Runtime Android APIを呼び出すのみで、ライブラリ自体は
   Gradle依存として取り込まれる（ソースの改変なし）。
+
+## OpenSheetMusicDisplay（PhonicScore）— BSD 3-Clause License
+
+- 対象: `app/src/main/assets/score/opensheetmusicdisplay.min.js`（バージョン 2.3.1 の配布ビルドを無改変で同梱）
+- 出典: https://github.com/opensheetmusicdisplay/opensheetmusicdisplay （npm `opensheetmusicdisplay@2.3.1`）
+- 用途: 生成した MusicXML をアプリ内 WebView で描画する楽譜レンダラー。
+- 同梱の理由: 完全オフラインで動作させるため（CDN・外部通信なしで描画できる）。
+- ライセンス全文: `app/src/main/assets/score/opensheetmusicdisplay.LICENSE.txt`
+- OSMD が内部で使う VexFlow（BSD 3-Clause, https://github.com/0xfe/vexflow）も
+  この配布ビルドに含まれる。フォントは VexFlow 同梱のものが使われ、外部ファイルを読まない。

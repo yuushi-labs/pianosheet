@@ -9,6 +9,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.yuushilabs.pianosheet.PianoSheetApplication
 import com.yuushilabs.pianosheet.domain.model.ProjectDetail
+import com.yuushilabs.pianosheet.domain.export.MidiExporter
+import com.yuushilabs.pianosheet.domain.export.MusicXmlExporter
 import com.yuushilabs.pianosheet.domain.score.Score
 import com.yuushilabs.pianosheet.playback.OriginalPlayer
 import com.yuushilabs.pianosheet.playback.ScorePlayer
@@ -171,6 +173,65 @@ class ScoreViewModel(
                 )
             }
         }
+    }
+
+    /** Writes the score as MusicXML and copies it where the user chose. */
+    fun saveMusicXml(uri: Uri) = saveExport(uri, "MusicXML") { score ->
+        container.scoreFileExporter.musicXmlFile(score)
+    }
+
+    /** Writes the score as a Standard MIDI File and copies it to [uri]. */
+    fun saveMidi(uri: Uri) = saveExport(uri, "MIDI") { score ->
+        container.scoreFileExporter.midiFile(score)
+    }
+
+    fun shareMusicXmlIntent(): Intent? = shareExport("MusicXML", MusicXmlExporter.MIME_TYPE) { score ->
+        container.scoreFileExporter.musicXmlFile(score)
+    }
+
+    fun shareMidiIntent(): Intent? = shareExport("MIDI", MidiExporter.MIME_TYPE) { score ->
+        container.scoreFileExporter.midiFile(score)
+    }
+
+    fun musicXmlSuggestedName(): String = container.scoreFileExporter.suggestedFileName(
+        _state.value.score ?: return "PianoSheet.musicxml",
+        MusicXmlExporter.FILE_EXTENSION,
+    )
+
+    fun midiSuggestedName(): String = container.scoreFileExporter.suggestedFileName(
+        _state.value.score ?: return "PianoSheet.mid",
+        MidiExporter.FILE_EXTENSION,
+    )
+
+    private fun saveExport(uri: Uri, label: String, build: (Score) -> Result<File>) {
+        val score = _state.value.score ?: return
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                build(score).mapCatching { file -> container.scoreFileExporter.save(file, uri).getOrThrow() }
+            }
+            _state.update {
+                it.copy(
+                    message = result.fold(
+                        onSuccess = { bytes -> "${'$'}label を保存しました（${'$'}{bytes / 1024} KB）" },
+                        onFailure = { error -> "${'$'}label を保存できませんでした: ${'$'}{error.message ?: "原因不明"}" },
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun shareExport(label: String, mimeType: String, build: (Score) -> Result<File>): Intent? {
+        val score = _state.value.score ?: return null
+        val file = build(score).getOrNull() ?: run {
+            _state.update { it.copy(message = "${'$'}label を作成できませんでした") }
+            return null
+        }
+        val title = _state.value.title.ifEmpty { "PianoSheet" }
+        val intent = container.scoreFileExporter.shareIntent(file, mimeType, title, "${'$'}label を共有")
+        if (intent == null) {
+            _state.update { it.copy(message = "${'$'}label を共有できませんでした") }
+        }
+        return intent
     }
 
     fun shareWavIntent(): Intent? {

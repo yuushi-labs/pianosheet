@@ -3,6 +3,8 @@ package com.yuushilabs.pianosheet.feature.score
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,51 +18,62 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.yuushilabs.pianosheet.domain.export.MidiExporter
+import com.yuushilabs.pianosheet.domain.export.MusicXmlExporter
 import com.yuushilabs.pianosheet.domain.score.Score
-import com.yuushilabs.pianosheet.ui.components.CompletedScoreCanvas
+import com.yuushilabs.pianosheet.ui.components.ScorePlayhead
+import com.yuushilabs.pianosheet.ui.components.ScoreWebView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
- * SCR-004 finished score (spec §3.6): header with the estimated tempo, meter and
- * key, the engraved score, Score/Original playback with speed control and the
- * raw-WAV export buttons.
+ * SCR-004 finished score (spec §3.6).
+ *
+ * One screen does the whole job: the engraved score, Score/Original playback
+ * with speed control, the export of MusicXML / MIDI / the raw take, and a
+ * re-analysis.  The score itself is drawn by OpenSheetMusicDisplay from the
+ * MusicXML this app generates, so what the user sees is exactly what the
+ * exported file contains.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +94,7 @@ fun ScoreScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var dragging by remember { mutableStateOf(false) }
+    var zoom by remember { mutableFloatStateOf(1f) }
 
     LaunchedEffect(projectId) { viewModel.load() }
 
@@ -100,11 +114,17 @@ fun ScoreScreen(
         }
     }
 
-    val saveLauncher = rememberLauncherForActivityResult(
+    val saveWav = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("audio/wav"),
-    ) { uri ->
-        if (uri != null) viewModel.saveWav(uri)
-    }
+    ) { uri -> if (uri != null) viewModel.saveWav(uri) }
+
+    val saveMusicXml = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(MusicXmlExporter.MIME_TYPE),
+    ) { uri -> if (uri != null) viewModel.saveMusicXml(uri) }
+
+    val saveMidi = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(MidiExporter.MIME_TYPE),
+    ) { uri -> if (uri != null) viewModel.saveMidi(uri) }
 
     Scaffold(
         topBar = {
@@ -114,12 +134,16 @@ fun ScoreScreen(
                         Text(
                             state.title.ifEmpty { "完成楽譜" },
                             fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         state.score?.let { score ->
                             Text(
                                 scoreSummary(score),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -163,15 +187,16 @@ fun ScoreScreen(
                 else -> {
                     val score = state.score!!
                     EstimateRow(score)
-                    CompletedScoreCanvas(
+                    ScoreArea(
                         score = score,
-                        currentMeasureIndex = state.measureIndex,
-                        activeNoteIds = state.activeNoteIds,
-                        playheadBeat = if (state.playing) state.beat else null,
+                        state = state,
+                        zoom = zoom,
+                        onZoom = { value -> zoom = value.coerceIn(0.7f, 1.8f) },
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
                     )
+                    HorizontalDivider()
                     PlaybackPanel(
                         state = state,
                         sliderPosition = sliderPosition,
@@ -187,15 +212,120 @@ fun ScoreScreen(
                         onMode = viewModel::setMode,
                         onSpeed = viewModel::setSpeed,
                     )
-                    ExportRow(
-                        onSave = { saveLauncher.launch(viewModel.suggestedFileName()) },
-                        onShare = {
-                            val intent = viewModel.shareWavIntent()
-                            if (intent != null) context.startActivity(intent)
-                        },
+                    ExportBar(
+                        onSaveMusicXml = { saveMusicXml.launch(viewModel.musicXmlSuggestedName()) },
+                        onSaveMidi = { saveMidi.launch(viewModel.midiSuggestedName()) },
+                        onSaveWav = { saveWav.launch(viewModel.suggestedFileName()) },
+                        onShareMusicXml = { launchShare(context, viewModel.shareMusicXmlIntent()) },
+                        onShareMidi = { launchShare(context, viewModel.shareMidiIntent()) },
+                        onShareWav = { launchShare(context, viewModel.shareWavIntent()) },
+                        onReanalyse = { onAnalyse(projectId) },
                     )
                 }
             }
+        }
+    }
+}
+
+private fun launchShare(context: android.content.Context, intent: android.content.Intent?) {
+    if (intent != null) context.startActivity(intent)
+}
+
+/**
+ * The engraved score plus the play-head.  The MusicXML is built once per score
+ * off the UI thread; the WebView renders it and only receives a position while
+ * the take plays.
+ */
+@Composable
+private fun ScoreArea(
+    score: Score,
+    state: ScoreUiState,
+    zoom: Float,
+    onZoom: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val dark = isSystemInDarkTheme()
+    val musicXml by produceState(initialValue = null as String?, key1 = score) {
+        value = withContext(Dispatchers.Default) {
+            runCatching { MusicXmlExporter.toMusicXml(score) }.getOrNull()
+        }
+    }
+    val playhead = remember(state.beat, state.measureIndex, state.playing, score) {
+        val beat = state.beat.coerceAtLeast(0.0)
+        val measure = score.measureAtBeat(beat)
+        if (measure == null) {
+            null
+        } else {
+            ScorePlayhead(
+                measureIndex = measure.index,
+                beatInMeasure = (beat - measure.startBeat).coerceIn(0.0, measure.beats),
+                beatsInMeasure = measure.beats,
+                follow = state.playing,
+            )
+        }
+    }
+
+    Box(modifier = modifier) {
+        val xml = musicXml
+        if (xml == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            ScoreWebView(
+                musicXml = xml,
+                darkTheme = dark,
+                zoom = zoom,
+                playhead = playhead,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        ZoomControl(
+            zoom = zoom,
+            onZoom = onZoom,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(6.dp),
+        )
+    }
+}
+
+@Composable
+private fun ZoomControl(zoom: Float, onZoom: (Float) -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f),
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+        ) {
+            SmallStepButton(label = "－", onClick = { onZoom(zoom - 0.15f) })
+            Text(
+                "${(zoom * 100).roundToInt()}%",
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+            )
+            SmallStepButton(label = "＋", onClick = { onZoom(zoom + 0.15f) })
+        }
+    }
+}
+
+@Composable
+private fun SmallStepButton(label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .height(30.dp)
+            .width(30.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
@@ -255,27 +385,34 @@ private fun PlaybackPanel(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FilterChipCompact(
+                label = "楽譜",
                 selected = state.mode == PlaybackMode.SCORE,
                 onClick = { onMode(PlaybackMode.SCORE) },
-                label = { Text("楽譜 (Score)") },
             )
-            FilterChip(
+            Spacer(Modifier.width(6.dp))
+            FilterChipCompact(
+                label = "元音声",
                 selected = state.mode == PlaybackMode.ORIGINAL,
                 onClick = { onMode(PlaybackMode.ORIGINAL) },
-                label = { Text("元音声 (Original)") },
             )
+            Spacer(Modifier.weight(1f))
+            if (state.measureIndex >= 0) {
+                Text(
+                    "${state.measureIndex + 1} 小節",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+            }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = onTogglePlay) {
-                Text(if (state.playing) "⏸ 一時停止" else "▶ 再生")
+                Text(if (state.playing) "⏸" else "▶")
             }
             Spacer(Modifier.width(8.dp))
-            Text(
-                formatTime(state.positionSec),
-                style = MaterialTheme.typography.labelSmall,
-            )
+            Text(formatTime(state.positionSec), style = MaterialTheme.typography.labelSmall)
             Slider(
                 value = sliderPosition,
                 onValueChange = onSliderChange,
@@ -286,9 +423,8 @@ private fun PlaybackPanel(
             )
             Text(formatTime(state.durationSec), style = MaterialTheme.typography.labelSmall)
         }
-        // Five speed chips have to fit a 720 px (360 dp) screen.  They use a
-        // compact shape and wrap to a second line instead of being squeezed into
-        // a vertical sliver at the right edge, which is what happened before.
+        // Five speed chips have to fit a 360 dp screen: compact shape, wrapping
+        // to a second line instead of shrinking into a sliver at the edge.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
@@ -308,15 +444,26 @@ private fun PlaybackPanel(
                     )
                 }
             }
-            if (state.measureIndex >= 0) {
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "${state.measureIndex + 1} 小節",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun FilterChipCompact(label: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(9.dp),
+        color = if (selected) colors.primary.copy(alpha = 0.22f) else Color.Transparent,
+        contentColor = if (selected) colors.primary else colors.onSurfaceVariant,
+        border = BorderStroke(1.dp, if (selected) colors.primary else colors.outline),
+        modifier = Modifier.height(32.dp),
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
@@ -347,18 +494,90 @@ private fun SpeedChip(label: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+/**
+ * One row of two buttons, each opening the format list: 保存 (to a folder the
+ * user picks) and 共有 (to another app).  The raw take, MusicXML and MIDI all
+ * live behind the same two buttons so nothing is buried.
+ */
 @Composable
-private fun ExportRow(onSave: () -> Unit, onShare: () -> Unit) {
+private fun ExportBar(
+    onSaveMusicXml: () -> Unit,
+    onSaveMidi: () -> Unit,
+    onSaveWav: () -> Unit,
+    onShareMusicXml: () -> Unit,
+    onShareMidi: () -> Unit,
+    onShareWav: () -> Unit,
+    onReanalyse: () -> Unit,
+) {
+    var saveOpen by remember { mutableStateOf(false) }
+    var shareOpen by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Button(onClick = onSave, modifier = Modifier.weight(1f)) {
-            Text("生録音(WAV)を保存")
+        Box(modifier = Modifier.weight(1f)) {
+            Button(onClick = { saveOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("保存")
+            }
+            DropdownMenu(expanded = saveOpen, onDismissRequest = { saveOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("MusicXML（.musicxml）") },
+                    onClick = {
+                        saveOpen = false
+                        onSaveMusicXml()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("MIDI（.mid）") },
+                    onClick = {
+                        saveOpen = false
+                        onSaveMidi()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("生録音（.wav）") },
+                    onClick = {
+                        saveOpen = false
+                        onSaveWav()
+                    },
+                )
+            }
         }
-        OutlinedButton(onClick = onShare) { Text("共有") }
+        Box(modifier = Modifier.weight(1f)) {
+            OutlinedButton(onClick = { shareOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("共有")
+            }
+            DropdownMenu(expanded = shareOpen, onDismissRequest = { shareOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("MusicXML を共有") },
+                    onClick = {
+                        shareOpen = false
+                        onShareMusicXml()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("MIDI を共有") },
+                    onClick = {
+                        shareOpen = false
+                        onShareMidi()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("生録音(WAV) を共有") },
+                    onClick = {
+                        shareOpen = false
+                        onShareWav()
+                    },
+                )
+            }
+        }
+        TextButton(onClick = onReanalyse, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
+            Text("再解析", maxLines = 1)
+        }
     }
 }
 

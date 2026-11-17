@@ -170,7 +170,7 @@ object MidiExporter {
     private const val PRIORITY_NOTE_OFF = 0
     private const val PRIORITY_NOTE_ON = 1
 
-    private class Event(val tick: Int, val priority: Int, val bytes: ByteArray) {
+    private class Event(var tick: Int, val priority: Int, val bytes: ByteArray) {
         /** Set when a later attack of the same pitch shortens this note-off. */
         var truncatedTick: Int = -1
     }

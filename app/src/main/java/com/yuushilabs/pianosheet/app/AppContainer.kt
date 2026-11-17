@@ -3,6 +3,7 @@ package com.yuushilabs.pianosheet.app
 import android.content.Context
 import androidx.room.Room
 import com.yuushilabs.pianosheet.core.audio.AudioStorage
+import com.yuushilabs.pianosheet.core.export.ScoreFileExporter
 import com.yuushilabs.pianosheet.core.export.WavExporter
 import com.yuushilabs.pianosheet.core.inference.BasicPitchDetector
 import com.yuushilabs.pianosheet.core.inference.BasicPitchModel
@@ -43,6 +44,9 @@ class AppContainer(context: Context) : Closeable {
     val audioStorage: AudioStorage by lazy { AudioStorage(appContext) }
 
     val wavExporter: WavExporter by lazy { WavExporter(appContext) }
+
+    /** MusicXML / MIDI files for the finished score (spec §8). */
+    val scoreFileExporter: ScoreFileExporter by lazy { ScoreFileExporter(appContext) }
 
     /** Loaded lazily on the inference dispatcher; the session costs a few hundred ms. */
     val basicPitchModel: BasicPitchModel by lazy { BasicPitchModel(appContext) }

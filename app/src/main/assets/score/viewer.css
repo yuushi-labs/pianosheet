@@ -1,0 +1,151 @@
+/*
+ * PianoSheet score viewer styling.
+ *
+ * The score is engraved black-on-white by nature: the paper card stays a light
+ * surface in the light theme and becomes a deep, slightly raised slate in the
+ * dark theme, with the notation drawn in a near-white ink.  Both are checked
+ * against the app background (#141218 dark, #FDFBFF light) so there is always a
+ * visible edge between the sheet and the app.
+ */
+
+:root {
+    --paper-dark: #1D1A23;
+    --paper-dark-edge: #322C3D;
+    --ink-dark: #EFEAF5;
+    --paper-light: #FFFFFF;
+    --paper-light-edge: #E3DEEB;
+    --ink-light: #1C1B1F;
+    --accent-dark: #C6B4F0;
+    --accent-light: #6A4FB6;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    -webkit-text-size-adjust: 100%;
+    font-family: -apple-system, "Noto Sans JP", "Roboto", sans-serif;
+}
+
+body.theme-dark {
+    background: #141218;
+    color: var(--ink-dark);
+}
+
+body.theme-light {
+    background: #FDFBFF;
+    color: var(--ink-light);
+}
+
+#scroller {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 8px 40px 8px;
+    box-sizing: border-box;
+}
+
+#paper {
+    position: relative;
+    box-sizing: border-box;
+    min-height: 120px;
+    padding: 10px 6px 14px 6px;
+    border-radius: 14px;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+body.theme-dark #paper {
+    background: var(--paper-dark);
+    border: 1px solid var(--paper-dark-edge);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+body.theme-light #paper {
+    background: var(--paper-light);
+    border: 1px solid var(--paper-light-edge);
+    box-shadow: 0 2px 10px rgba(28, 27, 31, 0.08);
+}
+
+#score {
+    width: 100%;
+    overflow: hidden;
+}
+
+#score svg {
+    display: block;
+}
+
+.overlay {
+    position: absolute;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#measure-band {
+    border-radius: 6px;
+    background: rgba(140, 122, 220, 0.16);
+    border: 1px solid rgba(160, 142, 235, 0.42);
+}
+
+body.theme-light #measure-band {
+    background: rgba(106, 79, 182, 0.10);
+    border: 1px solid rgba(106, 79, 182, 0.32);
+}
+
+#playhead {
+    width: 0;
+}
+
+#playhead .playhead-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -1.5px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent-dark);
+    box-shadow: 0 0 6px rgba(198, 180, 240, 0.55);
+}
+
+body.theme-light #playhead .playhead-line {
+    background: var(--accent-light);
+    box-shadow: 0 0 6px rgba(106, 79, 182, 0.35);
+}
+
+#status {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 80%;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.45;
+    text-align: center;
+    z-index: 5;
+}
+
+body.theme-dark #status {
+    background: rgba(40, 34, 50, 0.94);
+    color: var(--ink-dark);
+    border: 1px solid var(--paper-dark-edge);
+}
+
+body.theme-light #status {
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--ink-light);
+    border: 1px solid var(--paper-light-edge);
+}
