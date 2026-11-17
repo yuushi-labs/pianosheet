@@ -319,22 +319,25 @@ fun CompletedScoreCanvas(
 private object StaffHeader {
     /** Clef centre, in staff spaces (one space = one line gap). */
     const val CLEF_CENTRE = 1.22f
-    const val CLEF_HALF_WIDTH = 2.2f
-    /** Centre of the first accidental, clear of the clef's right edge. */
-    const val KEY_START = 2.6f
+    /** Half the drawn width of the clef glyph; its ink reaches this far right. */
+    const val CLEF_HALF_WIDTH = 2.4f
     const val ACCIDENTAL_ADVANCE = 0.78f
     /** Half the width of one accidental; a flat reaches further right than a sharp. */
     const val ACCIDENTAL_HALF_WIDTH = 0.58f
+    /** Centre of the first accidental: just clear of the clef's right edge. */
+    const val KEY_START = CLEF_CENTRE + CLEF_HALF_WIDTH + ACCIDENTAL_HALF_WIDTH
     const val KEY_TO_TIME_GAP = 0.55f
     /** Half the width of the time signature (two digits). */
-    const val TIME_HALF_WIDTH = 1.35f
+    const val TIME_HALF_WIDTH = 1.1f
     const val RIGHT_PAD = 0.35f
 
     /** Where the key signature ends, in px. */
     fun keySignatureEnd(lineGap: Float, fifths: Int): Float {
+        val clefEnd = (CLEF_CENTRE + CLEF_HALF_WIDTH) * lineGap
         val count = kotlin.math.abs(fifths)
-        if (count == 0) return (CLEF_CENTRE + CLEF_HALF_WIDTH) * lineGap
-        return (KEY_START + (count - 1) * ACCIDENTAL_ADVANCE + ACCIDENTAL_HALF_WIDTH) * lineGap
+        if (count == 0) return clefEnd
+        val keyEnd = (KEY_START + (count - 1) * ACCIDENTAL_ADVANCE + ACCIDENTAL_HALF_WIDTH) * lineGap
+        return max(clefEnd, keyEnd)
     }
 
     fun timeSignatureCentre(lineGap: Float, fifths: Int): Float =
