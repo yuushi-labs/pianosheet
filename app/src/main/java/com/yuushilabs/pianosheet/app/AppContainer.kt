@@ -11,6 +11,8 @@ import com.yuushilabs.pianosheet.core.inference.BasicPitchConstants
 import com.yuushilabs.pianosheet.core.inference.BasicPitchDetector
 import com.yuushilabs.pianosheet.core.inference.BasicPitchModel
 import com.yuushilabs.pianosheet.core.inference.PtiFinalEngine
+import com.yuushilabs.pianosheet.core.inference.PtiWindowModel
+import com.yuushilabs.pianosheet.domain.final.EngineUnavailableException
 import com.yuushilabs.pianosheet.core.inference.PtiOnnxModel
 import com.yuushilabs.pianosheet.data.ProjectRepositoryImpl
 import com.yuushilabs.pianosheet.data.SettingsRepository
@@ -57,18 +59,40 @@ class AppContainer(context: Context) : Closeable {
     val basicPitchModel: BasicPitchModel by lazy { BasicPitchModel(appContext) }
 
     /**
-     * PTI-ONNX for the final pass.  The 94 MB session is built on the analysis
-     * thread (never at app start) and released again when the container closes,
-     * because its arena peaks around 1.1 GB.
+     * The PTI session, kept only while an analysis runs.
+     *
+     * Building it costs 0.2 s and copying the 94 MB asset out of the APK a little
+     * more; holding it between analyses costs ~1 GB of resident memory, so it is
+     * closed as soon as the notes are out and rebuilt for the next analysis.
      */
-    private val ptiModel: PtiOnnxModel? by lazy {
-        try {
-            PtiOnnxModel(appContext)
+    private var ptiModel: PtiOnnxModel? = null
+    private var ptiModelFailed = false
+
+    @Synchronized
+    private fun obtainPtiModel(): PtiOnnxModel {
+        ptiModel?.let { return it }
+        if (ptiModelFailed) {
+            throw EngineUnavailableException("PTI モデルを読み込めませんでした")
+        }
+        return try {
+            PtiOnnxModel(appContext).also { ptiModel = it }
         } catch (error: Throwable) {
-            // A missing/corrupt asset or a failed session must not take the app down;
-            // the final analysis then stays on Basic Pitch.
+            // A missing/corrupt asset or a failed session must not take the app
+            // down; the final analysis then stays on Basic Pitch.
             Log.w("AppContainer", "PTI session unavailable: ${error.message}")
-            null
+            ptiModelFailed = true
+            throw EngineUnavailableException("PTI モデルを読み込めませんでした", error)
+        }
+    }
+
+    @Synchronized
+    private fun releasePtiModel(model: PtiWindowModel) {
+        if (ptiModel === model) {
+            try {
+                (model as? Closeable)?.close()
+            } catch (_: Exception) {
+            }
+            ptiModel = null
         }
     }
 
@@ -81,19 +105,12 @@ class AppContainer(context: Context) : Closeable {
             model = basicPitchModel,
             onsetThreshold = BasicPitchConstants.FINAL_ONSET_THRESHOLD,
         )
-        val model = ptiModel
-        val engine = model?.let {
-            PtiFinalEngine(model = it, canRun = { freeMemoryMb() >= MIN_PTI_FREE_MB })
-        }
-        FinalTranscriber(
-            detector = basicPitch,
-            finalEngine = engine,
-            engineUnavailable = if (engine == null) {
-                "PTI モデルを読み込めなかったため Basic Pitch で解析します"
-            } else {
-                null
-            },
+        val engine = PtiFinalEngine(
+            modelProvider = { obtainPtiModel() },
+            releaseModel = { model -> releasePtiModel(model) },
+            canRun = { freeMemoryMb() >= MIN_PTI_FREE_MB },
         )
+        FinalTranscriber(detector = basicPitch, finalEngine = engine)
     }
 
     /** Free device RAM, or [Long.MAX_VALUE] when the platform cannot say. */
@@ -121,6 +138,7 @@ class AppContainer(context: Context) : Closeable {
             ptiModel?.close()
         } catch (_: Exception) {
         }
+        ptiModel = null
     }
 
     companion object {

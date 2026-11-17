@@ -16,13 +16,31 @@ import com.yuushilabs.pianosheet.domain.model.NoteState
  * chain is reused: PianoVAM showed PTI needs neither the octave-ghost filter
  * (the pure high lines simply do not appear) nor the short-note rejection
  * (its offsets are regression times, not frame runs).
+ *
+ * The session is asked for only when there is something to transcribe and is
+ * released again as soon as the notes are out: its arena peaks around 1.1–1.2 GB,
+ * so holding it between analyses would be the difference between a 3 GB phone
+ * keeping the app alive and losing it to the background killer.
  */
 class PtiFinalEngine(
-    private val model: PtiWindowModel,
+    private val modelProvider: () -> PtiWindowModel,
+    private val releaseModel: (PtiWindowModel) -> Unit = {},
     private val postProcessor: PtiPostProcessor = PtiPostProcessor(),
     /** Checked before the session is used, e.g. free RAM on the device. */
     private val canRun: () -> Boolean = { true },
 ) : FinalNoteEngine {
+
+    /** Convenience for a session that lives as long as this engine. */
+    constructor(
+        model: PtiWindowModel,
+        postProcessor: PtiPostProcessor = PtiPostProcessor(),
+        canRun: () -> Boolean = { true },
+    ) : this(
+        modelProvider = { model },
+        releaseModel = {},
+        postProcessor = postProcessor,
+        canRun = canRun,
+    )
 
     override val id: String = ID
     override val displayName: String = "PTI-ONNX（ピアノ専用）"
@@ -36,16 +54,21 @@ class PtiFinalEngine(
         if (!canRun()) {
             throw EngineUnavailableException("端末の空きメモリが足りません")
         }
-        val audio16 = if (sampleRate == SAMPLE_RATE) {
-            audio
-        } else {
-            AudioResampler.resample(audio, sampleRate, SAMPLE_RATE)
+        val model = modelProvider()
+        val result = try {
+            val audio16 = if (sampleRate == SAMPLE_RATE) {
+                audio
+            } else {
+                AudioResampler.resample(audio, sampleRate, SAMPLE_RATE)
+            }
+            PtiOnnxTranscriber(model, postProcessor).transcribe(
+                audio = audio16,
+                shouldCancel = shouldCancel,
+                onProgress = onProgress,
+            )
+        } finally {
+            releaseModel(model)
         }
-        val result = PtiOnnxTranscriber(model, postProcessor).transcribe(
-            audio = audio16,
-            shouldCancel = shouldCancel,
-            onProgress = onProgress,
-        )
         val notes = ArrayList<NoteEvent>(result.notes.size)
         for (note in result.notes) {
             // The 250 ms ramp already shaped the very start; a note inside the
