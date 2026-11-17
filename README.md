@@ -16,7 +16,8 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 | Phase 0: 技術検証（リアルタイム1〜2秒・採譜品質） | **完了** — 実測結果は [docs/phase0-report.md](docs/phase0-report.md) |
 | Phase 1: Androidリアルタイム採譜MVP | **実装済み（実機チューニング待ち）** — 下記「Phase 1 の実装範囲」 |
 | Phase 2: 最終解析・完成楽譜・再生・生録音WAV | **実装済み** — 下記「Phase 2 の実装範囲」 |
-| Phase 3 以降（編集・Undo/Redo・PDF/MIDI/MusicXML） | 未着手 |
+| Phase 2.3: MusicXML・MIDI出力 / OSMD楽譜ビューワー | **実装済み** — [docs/phase2-3-export-report.md](docs/phase2-3-export-report.md) |
+| Phase 3 以降（編集・Undo/Redo・PDF） | 未着手 |
 
 ### Phase 0 の要点
 
@@ -54,8 +55,9 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
   - `PitchSpeller`: 調号に沿った綴り（F dur の B♭ など）と、小節内で臨時記号を持ち越す処理。
   - 小節分割・休符生成、ライブ検出との照合（一致/解析のみ/ライブのみの件数を保存、仕様 §5.7）。
 - **SCR-003 解析中**: 「準備中...」「音符を書き起こしています...（n/N）」「仕上げ中...」の3段階と実進捗率。中止しても録音は残る。
-- **SCR-004 完成楽譜**: テンポ・拍子・調号チップ、複数段に折り返す大譜表（`ScoreLayoutEngine` による版面計算）、小節線・小節番号・拍子/調号・音符（全〜16分＋付点＋符尾）・休符・加線・臨時記号、再生中の小節ハイライトとプレイヘッド。再解析ボタン。
+- **SCR-004 完成楽譜**: テンポ・拍子・調号チップ、**生成した MusicXML を同梱の OpenSheetMusicDisplay（2.3.1）で描く WebView ビューワー**（完全オフライン、ダーク/ライト両対応、70〜180% ズーム）。再生位置の小節帯＋プレイヘッド＋自動スクロール、保存/共有メニュー（MusicXML・MIDI・生録音WAV）、再解析。
 - **再生（`playback`）**: Score は `PianoSynth`（6倍音＋ADSR の加算合成）をオフラインで PCM 化して `AudioTrack` で再生（速度変更は時間軸のみ再レンダリングし音高を保つ）。Original は `MediaPlayer` で無加工 WAV を再生。0.5〜1.5倍速、シーク、楽譜/元音声の切り替え。
+- **MusicXML・MIDI の出力（`domain/export`, `core/export`）**: `MusicXmlExporter`（MusicXML 4.0・2段1パート・和音/タイ/付点/休符/調号/テンポ）と `MidiExporter`（SMF Format 1・テンポ/拍子/調号トラック＋右手/左手トラック、PPQ480）。どちらも SAF 保存と `FileProvider` 共有に対応。詳細は [docs/phase2-3-export-report.md](docs/phase2-3-export-report.md)。
 - **生録音WAVの保存・共有（`core/export`）**: Storage Access Framework（`CreateDocument("audio/wav")`）で任意フォルダへ保存、`FileProvider` 経由の共有シート。`res/xml/file_paths.xml` で公開範囲を `files/recordings` と `cache/exports` に限定。
 - **録音開始直後の誤検出対策（`core/dsp/StartupGuard`）**: 解析コピーの先頭 250ms を線形フェードイン＋DC 除去、ゼロ埋め窓の境界に 30ms フェード、開始 250ms 以内は「強い打鍵（onset強度0.70以上かつ信頼度0.45以上）」以外の onset を抑制。ライブ・最終解析の両方に適用（録音 WAV は無加工のまま）。
 - **ライブ譜面のレイアウト修正（`domain/live/LiveStaffLayout`）**: 同時発音は同じX、打鍵間隔は最低 15dp を確保、ト音/ヘ音のヘッダーは左固定で譜面のみ横スクロール、自動追従はアニメーションではなく即時スクロールで最新音を画面の68%位置に置く（260音・3分でも破綻しないことをテスト）。
