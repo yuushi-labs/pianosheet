@@ -81,10 +81,19 @@ class AppContainer(context: Context) : Closeable {
             model = basicPitchModel,
             onsetThreshold = BasicPitchConstants.FINAL_ONSET_THRESHOLD,
         )
-        val engine = ptiModel?.let { model ->
-            PtiFinalEngine(model = model, canRun = { freeMemoryMb() >= MIN_PTI_FREE_MB })
+        val model = ptiModel
+        val engine = model?.let {
+            PtiFinalEngine(model = it, canRun = { freeMemoryMb() >= MIN_PTI_FREE_MB })
         }
-        FinalTranscriber(detector = basicPitch, finalEngine = engine)
+        FinalTranscriber(
+            detector = basicPitch,
+            finalEngine = engine,
+            engineUnavailable = if (engine == null) {
+                "PTI モデルを読み込めなかったため Basic Pitch で解析します"
+            } else {
+                null
+            },
+        )
     }
 
     /** Free device RAM, or [Long.MAX_VALUE] when the platform cannot say. */

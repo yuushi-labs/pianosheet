@@ -96,6 +96,8 @@ class FinalTranscriber(
     private val targetSampleRate: Int = 22050,
     /** PTI-ONNX for the final pass; null keeps the Basic Pitch path only. */
     private val finalEngine: FinalNoteEngine? = null,
+    /** Why there is no final engine (missing model file, failed session), if known. */
+    private val engineUnavailable: String? = null,
 ) {
 
     fun transcribe(
@@ -149,7 +151,7 @@ class FinalTranscriber(
         // pass below, and the score records which engine ran.
         var engineId = detector.name
         var engineLabel = ENGINE_LABEL_BASIC
-        var engineFallback: String? = null
+        var engineFallback: String? = if (finalEngine == null) engineUnavailable else null
         var engineNotes: List<NoteEvent>? = null
         var engineChunks = 0
         if (finalEngine != null && options.useFinalEngine) {

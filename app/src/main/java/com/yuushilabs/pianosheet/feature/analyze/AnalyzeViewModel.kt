@@ -113,6 +113,15 @@ class AnalyzeViewModel(
                     )
                 }
 
+                // Building the 94 MB PTI session and copying the model out of
+                // assets happens on the first use; say so before it starts.
+                applyProgress(
+                    com.yuushilabs.pianosheet.domain.final.FinalProgress(
+                        FinalStage.PREPARING,
+                        0.02,
+                        "解析エンジンを準備しています",
+                    ),
+                )
                 val result = withContext(Dispatchers.Default) {
                     container.finalTranscriber.transcribe(
                         file = file,
