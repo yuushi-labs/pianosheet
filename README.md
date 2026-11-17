@@ -7,6 +7,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 - 仕様書: [docs/PianoSheet_仕様書_v1.3.md](docs/PianoSheet_仕様書_v1.3.md)（v1.2 は [docs/PianoSheet_仕様書_v1.2.md](docs/PianoSheet_仕様書_v1.2.md)）
 - Phase 0 技術検証レポート: [docs/phase0-report.md](docs/phase0-report.md)
 - PianoVAM 定量評価（Phase 2.4）: [docs/phase2-4-pianovam-report.md](docs/phase2-4-pianovam-report.md) / 測定コード [tools/pianovam-bench](tools/pianovam-bench/README.md)
+- PTI-ONNX 組み込み・チューニング（Phase 3）: [docs/phase3-pti-report.md](docs/phase3-pti-report.md)
 - 共通ノートイベント仕様: [shared-specs/note-event.schema.json](shared-specs/note-event.schema.json)
 - サードパーティ・ライセンス: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
@@ -19,7 +20,8 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 | Phase 2: 最終解析・完成楽譜・再生・生録音WAV | **実装済み** — 下記「Phase 2 の実装範囲」 |
 | Phase 2.3: MusicXML・MIDI出力 / OSMD楽譜ビューワー | **実装済み** — [docs/phase2-3-export-report.md](docs/phase2-3-export-report.md) |
 | Phase 2.4: PianoVAM 定量評価・採譜/楽譜品質の改善（`0.3.1-phase2`） | **実装済み** — [docs/phase2-4-pianovam-report.md](docs/phase2-4-pianovam-report.md) |
-| Phase 3 以降（編集・Undo/Redo・PDF） | 未着手 |
+| Phase 3: ピアノ専用モデル PTI-ONNX の組み込み（`0.4.0-phase2`） | **実装済み** — [docs/phase3-pti-report.md](docs/phase3-pti-report.md) |
+| Phase 4 以降（編集・Undo/Redo・PDF） | 未着手 |
 
 ### Phase 0 の要点
 
@@ -49,6 +51,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 
 - **採譜候補の物理チェック（`NoteCandidateFilter`）**: 減衰尾の再報告（onset < 0.30）、80ms未満のクリック、C6以上の弱い検出、同時に鳴る強い下の音のオクターブ/12度上の倍音ゴーストを落とす。窓統合後にも `FinalNoteMerger.suppressGhosts()` で同じ検査を行う。詳細は [docs/phase2-1-report.md](docs/phase2-1-report.md)。
 - **最終解析（`domain/final`）**: 保存済みの無加工 WAV を読み直し（`WavFileReader`）、22.05kHz へ統一（`AudioResampler`）→ 設定に応じたノイズ除去（既定 standard＋25Hz ハイパス、ハムは自動判定可）→ Basic Pitch ONNX で全体を 2秒窓・1秒ホップで再解析 → 窓間の重複を統合（`FinalNoteMerger`）。復号は onset 0.55 / frame 0.30 / 最小音符長 6 フレーム、120ms 未満の短い音は onset 強度 0.45 以上を要求（Phase 2.4 の実測で決定）。
+  `0.4.0-phase2` 以降の既定エンジンは PTI-ONNX（下記 Phase 3）で、この Basic Pitch 経路はフォールバックとして残る。
   - `TempoEstimator`: 発音間隔とグリッド整合度から BPM を推定（倍/半分テンポの曖昧さは 70〜150 BPM を優先して解決）。
   - `TimeSignatureEstimator`: 各拍子候補を**最良の位相**で採点して 4/4・3/4・2/4・6/8 を推定し、下拍の位相（アウフタクト）も返す。アクセントは低音を重く数え、書きやすい拍子（4/4・3/4）を優先。6/8 は中間アクセントで 3/4 と区別。
   - 小節は推定した下拍位相に置き、最初の下拍より前は**アウフタクト**（短い第1小節、MusicXML では `implicit="yes"`）として書く。
@@ -67,7 +70,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 - **ライブ譜面のレイアウト修正（`domain/live/LiveStaffLayout`）**: 同時発音は同じX、打鍵間隔は最低 15dp を確保、ト音/ヘ音のヘッダーは左固定で譜面のみ横スクロール、自動追従はアニメーションではなく即時スクロールで最新音を画面の68%位置に置く（260音・3分でも破綻しないことをテスト）。
 - **DB**: Room v3（`scores` テーブル追加）。`MIGRATION_1_2` / `MIGRATION_2_3` を実装し、`fallbackToDestructiveMigration` を廃止。Phase 1 の録音・暫定音符はそのまま残る。
 - **暫定音符一覧の並び順**: `onsetMs` 昇順 → `midiPitch` 昇順（5.17 の後に 5.08 が出る問題を修正）。
-- **テスト**: 198件（うち PianoVAM ベンチ1件は環境変数 `PIANOSHEET_PIANOVAM_DIR` 指定時のみ）（起動ガード、ライブ譜面レイアウト、テンポ/拍子/調性推定、量子化・小節・休符・左右振り分け・臨時記号、スコアのエンコード往復、ピアノシンセの波形/音高、リサンプラ、WAV 読み書き、最終解析の通し、マイグレーション）。
+- **テスト**: 211件（うち PianoVAM ベンチ1件は環境変数 `PIANOSHEET_PIANOVAM_DIR` 指定時のみ）（起動ガード、ライブ譜面レイアウト、テンポ/拍子/調性推定、量子化・小節・休符・左右振り分け・臨時記号、スコアのエンコード往復、ピアノシンセの波形/音高、リサンプラ、WAV 読み書き、最終解析の通し、マイグレーション）。
 
 ### 使い方（Phase 2）
 
@@ -77,18 +80,47 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 4. 右上の更新ボタンで再解析（設定のノイズ除去/ハムを変えたあとに有効）。
 5. 「生録音(WAV)を保存」で任意のフォルダへ、「共有」で共有シートへ。プロジェクト詳細画面からも同じ操作ができる。
 
+### Phase 3 の実装範囲（PTI-ONNX の組み込み）
+
+**ライブ＝Basic Pitch / 最終解析＝PTI-ONNX のハイブリッド構成**（`0.4.0-phase2`）。
+
+- **最終解析エンジン（`core/inference/Pti*`）**: 録音停止後の本解析を、ピアノ専用モデル PTI
+  （`piano-notes-v1.onnx`、94.1 MB、CC BY 4.0）で行う。16 kHz へリサンプルし、10秒窓・5秒ホップで
+  推論して各窓の中央50%を継ぎ足し、`RegressionPostProcessor` の Kotlin 移植（100 fps）で音符化する。
+  PianoVAM 6曲×40秒で **micro F1 0.793 → 0.957、和音一致 0.526 → 0.911、同音重複 59 → 2**。
+  ライブは従来どおり Basic Pitch（PTI は10秒で1.09秒かかるため）。
+- **後処理のチューニング**: 閾値・ピーク近傍を69通り試して**公式値のままが最良**と確認。
+  代わりに「キー活動がピークの40%未満に50ms連続で落ちた位置まで終端を詰める」減衰トリムを追加し、
+  音符の終わりの誤差を中央値 **+102 → +58 ms**、p95 **607 → 508 ms** に改善（F1・和音一致は不変）。
+- **フォールバック**: モデルの読み込み失敗・端末の空き RAM 不足（1.4 GB 未満）・`OutOfMemoryError`
+  では Basic Pitch の最終解析へ自動で切り替え、解析中画面と結果に「どちらのエンジンで解析したか」と
+  理由を出す。
+- **進捗**: SCR-003 は「モデル読み込み → 区間推論（n/N、1区間あたり約1.1秒）→ 楽譜生成」を実測どおりに出す。
+- **ノイズ除去**: ノイズ下では Denoiser「弱」が最も F1 を守る（白12dB 0.921 → 0.942）が、
+  クリーン音源では和音一致を落とすため、最終解析の既定は現行の「標準」を維持。
+- **サイズ**: APK 192 MB（183 MiB、`piano-notes-v1.onnx` は無圧縮で格納）。Play 配布する場合は
+  ベース APK 上限 200 MB に近いので Asset Delivery 化が必要。
+- **モデルの取得**: 94.1 MB の重みはリポジトリに含めない（`.gitignore`）。`./gradlew` の
+  `fetchPtiModel` タスク（`preBuild` に接続）が初回ビルド時に Hugging Face から取得し、
+  SHA-256 を検証してから `assets/models/` へ置く。手動なら `python3 tools/fetch_pti_model.py`。
+  APK には同梱されるので、インストール後の端末はオフラインで動く。
+- **テスト**: 実モデル出力10秒をフィクスチャにして、Kotlin の復号が Python（＝公式実装と完全一致）と
+  音符単位で一致することを検証。窓計画・ステッチ・進捗・キャンセル・フォールバックも含めて **211件**。
+
 ### Phase 2 の既知の制限
 
-- 楽譜編集（音符の追加・削除・移調）と Undo/Redo は Phase 3。
-- PDF / MIDI / MusicXML の書き出しは Phase 3（本フェーズは生録音 WAV の保存・共有まで）。
+- 楽譜編集（音符の追加・削除・移調）と Undo/Redo は Phase 4。
+- PDF の書き出しは Phase 4（MusicXML・MIDI は Phase 2.3 で実装済み）。
 - 調性・拍子の手動変更 UI は未実装（推定値を表示するのみ）。
-- 最終解析は端末内の逐次推論のため、長い録音では時間がかかる（3分で約180窓）。
+- 最終解析（PTI-ONNX）は端末内推論で、3分の録音に約40秒かかる（検証機・2コア）。
+  空きRAMが1.4GB未満の端末やメモリ不足時は Basic Pitch に自動で切り替わる。
+- 演奏中にペダルを踏んだ場合、PTI の音符枝はペダル情報を持たないため音の長さは鍵の解放で決まる。
 
 ### Phase 1 の既知の制限
 
 - 実機マイクでの精度・遅延チューニングは未実施（Phase 0 は合成音源）。T-013（実ピアノ＋実機マイク）での再評価が次の課題。
 - 録音は画面内のみ（Foreground Service によるバックグラウンド継続はPhase 4）。画面を離れると録音は停止する。
-- 停止後の最終解析・リズム/小節の確定・再生は Phase 2 で実装済み（上記）。編集・PDF/MIDI/MusicXML は Phase 3。
+- 停止後の最終解析・リズム/小節の確定・再生は Phase 2 で実装済み（上記）。編集・PDF は Phase 4、MusicXML/MIDI は Phase 2.3 で実装済み。
 - 音声ファイルの取り込みは Phase 2 から取り込み直後に自動解析する。
 
 ## ビルド
