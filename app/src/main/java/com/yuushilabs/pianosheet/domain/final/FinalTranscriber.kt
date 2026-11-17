@@ -242,7 +242,19 @@ class FinalTranscriber(
         var harmonicExamined = 0
         val engineNotesFinal = engineNotes
         if (engineNotesFinal != null) {
-            merged = engineNotesFinal
+            // PTI's own ghosts: on a quiet, noisy take the model reports a high
+            // note one octave up as well (C6 → C7), and the doubled note is one
+            // spectral line of the key below with no partials of its own.  The
+            // same realness check the Basic Pitch path uses removes them, with
+            // the octave interval added and a stricter "no partials" gate.
+            val realness = HarmonicRealnessFilter.apply(
+                notes = engineNotesFinal,
+                audio = resampled,
+                settings = HarmonicRealnessFilter.PTI,
+            )
+            merged = realness.kept
+            harmonicSuppressed = realness.dropped.size
+            harmonicExamined = realness.examined
         } else {
             val mergedResult = FinalNoteMerger.mergeDetailed(results, toleranceMs = options.mergeToleranceMs)
             // v1.4: a high note that carries none of its own 2nd/3rd partial is one

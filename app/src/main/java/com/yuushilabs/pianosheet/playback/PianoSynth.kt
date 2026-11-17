@@ -2,6 +2,7 @@ package com.yuushilabs.pianosheet.playback
 
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.pow
 import kotlin.math.sin
@@ -21,7 +22,17 @@ object PianoSynth {
 
     /** Attack of the hammer, then the string decays per harmonic. */
     const val ATTACK_SEC = 0.006
-    const val RELEASE_SEC = 0.055
+
+    /**
+     * How long the damper takes to stop the string after the key is released.
+     *
+     * It used to be 55 ms with a 19 ms exponential, which left the waveform at
+     * ~6 % of its level when the buffer ended: that step is a broadband click at
+     * every note end — heard as a tick riding on the (correct) pitch, and it made
+     * every note sound cut short.  The release now fades to exactly zero over
+     * 180 ms, which is about how long a real damper takes.
+     */
+    const val RELEASE_SEC = 0.18
     const val BASE_DECAY_SEC = 1.25
 
     /** Highest output sample value, leaving headroom before 16-bit conversion. */
@@ -97,7 +108,14 @@ object PianoSynth {
             for (i in 0 until sampleCount) {
                 val t = i.toDouble() / sampleRate
                 val attack = if (t < ATTACK_SEC) t / ATTACK_SEC else 1.0
-                val release = if (t <= gate) 1.0 else exp(-(t - gate) / (RELEASE_SEC * 0.35))
+                val release = if (t <= gate) {
+                    1.0
+                } else {
+                    // Exponential damp along a raised cosine that reaches zero with
+                    // zero slope at gate + RELEASE_SEC: no step at the end.
+                    val u = ((t - gate) / RELEASE_SEC).coerceIn(0.0, 1.0)
+                    exp(-u * 2.2) * (0.5 + 0.5 * cos(PI * u))
+                }
                 val envelope = attack * release * exp(-t / decay)
                 if (envelope < 1e-4) continue
                 out[startSample + i] += (amplitude * envelope * sin(omega * i)).toFloat()

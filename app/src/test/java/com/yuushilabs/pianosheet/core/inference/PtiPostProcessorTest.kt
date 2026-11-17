@@ -132,7 +132,8 @@ class PtiPostProcessorTest {
     @Test
     fun `the decay trim matches the tuning experiment`() {
         val fixture = load()
-        val decoder = PtiPostProcessor() // defaults: trim 0.4 / 5 frames / 60 ms
+        // The exported reference used the 40 % ratio the tuning experiment ran with.
+        val decoder = PtiPostProcessor(PtiPostProcessor.Settings(decayTrimRatio = 0.4f))
         val notes = decoder.decode(fixture.frames)
 
         assertEquals(fixture.trimmed.size, notes.size)
@@ -151,6 +152,27 @@ class PtiPostProcessorTest {
             fixture.trimmedCount,
             notes.count { it.trimmed },
         )
+    }
+
+    @Test
+    fun `the shipped ratio trims less than the tuning experiment`() {
+        // 0.4.2: 30 % instead of 40 %, so a take's notes keep more of their ring.
+        val fixture = load()
+        val reference = PtiPostProcessor(PtiPostProcessor.Settings(decayTrimRatio = 0.4f)).decode(fixture.frames)
+        val shipped = PtiPostProcessor().decode(fixture.frames)
+        val plain = PtiPostProcessor(PtiPostProcessor.Settings(decayTrim = false)).decode(fixture.frames)
+        assertEquals(0.30f, PtiPostProcessor.Settings().decayTrimRatio, 1e-6f)
+        assertEquals(reference.size, shipped.size)
+        var longer = 0
+        for ((index, at40) in reference.withIndex()) {
+            val at30 = shipped[index]
+            assertEquals(at40.pitchMidi, at30.pitchMidi)
+            assertEquals(at40.onsetS, at30.onsetS, 1e-9)
+            assertTrue("30 % never ends a note before 40 % did", at30.endS >= at40.endS - 1e-9)
+            assertTrue("the trim still shortens", at30.endS <= plain[index].endS + 1e-9)
+            if (at30.endS > at40.endS + 1e-6) longer += 1
+        }
+        assertTrue("some notes keep their ring at 30 %: $longer", longer > 0)
     }
 
     @Test

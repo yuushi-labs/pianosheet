@@ -26,8 +26,13 @@ data class PtiNote(
  * (`piano_transcription_inference.utilities`, Kong et al., IEEE/ACM TASLP 2021),
  * plus the one tuning change measured on PianoVAM
  * (`docs/phase3-pti-report.md`): a note's end is pulled back to the point where
- * its key activity has fallen to 40 % of the note's peak for 5 consecutive
+ * its key activity has fallen to 30 % of the note's peak for 5 consecutive
  * frames (50 ms).
+ *
+ * The ratio was 40 % in 0.4.1.  On the user's own take that cut the median note
+ * 90 ms short (0.97 s → 0.88 s), which is what the playback sounded like notes
+ * stopping early; 30 % gives back about 60 ms of it, and the offsets on PianoVAM
+ * stay where they were (median −12 ms, p95 +127 → +130 ms).
  *
  * The port is checked against the Python reference by `PtiPostProcessorTest`,
  * which decodes the model frames the Python benchmark exported and compares the
@@ -60,7 +65,7 @@ class PtiPostProcessor(
         val beginNote: Int = PtiFrames.BEGIN_NOTE,
         val velocityScale: Int = 128,
         /** Pull a note's end to where the frame output stays below this share of its peak. */
-        val decayTrimRatio: Float = 0.4f,
+        val decayTrimRatio: Float = 0.30f,
         /** ... for this many consecutive frames (5 frames = 50 ms at 100 fps). */
         val decayTrimPersist: Int = 5,
         /** A trim never shortens a note below this, so a real short note survives. */
@@ -230,7 +235,8 @@ class PtiPostProcessor(
      * offset does: the end is the first frame from which the column stays below
      * [Settings.decayTrimRatio] of the note's peak for [Settings.decayTrimPersist]
      * frames.  PianoVAM: median note-end error +102 ms → +58 ms, p95 607 → 508 ms,
-     * 32 notes better and 4 worse, onsets and F1 untouched.
+     * 32 notes better and 4 worse, onsets and F1 untouched.  At 30 % the same
+     * measurement gives the same median and a p95 of +130 ms against +127 ms.
      */
     private fun trimEnd(
         frameColumn: FloatArray,

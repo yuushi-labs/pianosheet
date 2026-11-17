@@ -15,8 +15,8 @@ android {
         applicationId = "com.yuushilabs.pianosheet"
         minSdk = 29
         targetSdk = 34
-        versionCode = 8
-        versionName = "0.4.1-phase2"
+        versionCode = 9
+        versionName = "0.4.2-phase2"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -73,6 +73,9 @@ android {
             it.testLogging {
                 showStandardStreams = true
             }
+            // ScoreViewerAssetsTest reads the bundled viewer from disk: the assets
+            // are not on a plain JVM test's classpath.
+            it.systemProperty("pianosheet.assetsDir", file("src/main/assets").absolutePath)
         }
     }
 }

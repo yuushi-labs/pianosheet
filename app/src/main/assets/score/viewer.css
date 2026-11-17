@@ -49,14 +49,20 @@ body.theme-light {
     overflow-x: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 8px 8px 40px 8px;
+    /* The zoom control floats over the bottom-right corner of the sheet: the
+       last system must be able to scroll clear of it. */
+    padding: 8px 8px 56px 8px;
     box-sizing: border-box;
 }
 
 #paper {
     position: relative;
     box-sizing: border-box;
-    min-height: 120px;
+    /* Fill the viewer: the sheet is the whole panel, not a stub at the top.  A
+       percentage min-height resolves against the scroller's content box, so the
+       padding above stays outside it.  (It used to be 120 px, which is exactly
+       the height the WebView collapsed to when it was measured WRAP_CONTENT.) */
+    min-height: 100%;
     padding: 10px 6px 14px 6px;
     border-radius: 14px;
     transition: background-color 160ms ease, border-color 160ms ease;

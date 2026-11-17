@@ -55,6 +55,29 @@ object HarmonicRealnessFilter {
          */
         val requireOwnerNote: Boolean = true,
         val ownerSpanMs: Double = 80.0,
+        /**
+         * Intervals below the note that can own one of its spectral lines.  24 and
+         * 36 are the 4th and 8th partial (Basic Pitch's ghost); 12 is the 2nd
+         * partial, which is what PTI doubles an octave up on a noisy take.
+         */
+        val ownerIntervals: List<Int> = listOf(24, 36),
+    )
+
+    /**
+     * The PTI pass (0.4.2).  The model doubles a high note an octave up on a quiet,
+     * noisy take (C6 → C7 as one line at the 2nd partial), and the doubled note
+     * carries no partials of its own: h2 ≈ 0.02, h3 ≈ 0.005 against 0.4–1.0 for a
+     * real key.  PianoVAM's six excerpts keep 0.9561 micro F1 against 0.9571 (one
+     * more removed note in the Improvisation), and on the user's take the same rule
+     * drops the C7/D7/D#7 lines under real C6/D6/D#6 keys while keeping every real
+     * high note.
+     */
+    val PTI = Settings(
+        registerGate = 84,
+        maxSecondPartialRatio = 0.05,
+        maxThirdPartialRatio = 0.015,
+        ownerSpanMs = 60.0,
+        ownerIntervals = listOf(12, 24, 36),
     )
 
     /** What the spectrum says about one note: linear magnitudes, and their ratios. */
@@ -158,7 +181,7 @@ object HarmonicRealnessFilter {
             if (ev.secondRatio < settings.maxSecondPartialRatio &&
                 ev.thirdRatio < settings.maxThirdPartialRatio
             ) {
-                if (settings.requireOwnerNote && !hasOwner(note, byPitch, settings.ownerSpanMs)) {
+                if (settings.requireOwnerNote && !hasOwner(note, byPitch, settings.ownerSpanMs, settings.ownerIntervals)) {
                     kept.add(note)
                     continue
                 }
@@ -177,8 +200,9 @@ object HarmonicRealnessFilter {
         note: NoteEvent,
         byPitch: Map<Int, List<NoteEvent>>,
         ownerSpanMs: Double,
+        intervals: List<Int>,
     ): Boolean {
-        for (span in OWNER_INTERVALS) {
+        for (span in intervals) {
             val lower = byPitch[note.pitchMidi - span] ?: continue
             for (candidate in lower) {
                 if (kotlin.math.abs(candidate.onsetMs - note.onsetMs) <= ownerSpanMs) return true
@@ -186,9 +210,6 @@ object HarmonicRealnessFilter {
         }
         return false
     }
-
-    /** 2 and 3 octaves: the 4th and 8th partial of a lower key. */
-    private val OWNER_INTERVALS = intArrayOf(24, 36)
 
     /** Spectrum evidence for one note, in the same units as [apply]. */
     fun evidence(

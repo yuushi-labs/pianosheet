@@ -163,6 +163,50 @@ class HarmonicRealnessFilterTest {
     }
 
     @Test
+    fun `the octave line PTI makes on a noisy take is removed`() {
+        // C5 struck for real: its 2nd partial is exactly C6, and on a quiet, noisy
+        // take PTI reports that partial as a second key.  The upper note has no
+        // partials of its own (the partials it would have sit on C5's 4th and 6th,
+        // which a piano barely excites), so it is one spectral line.
+        val audio = tone(72, partials = listOf(1 to 1.0, 2 to 0.35, 3 to 0.12, 4 to 0.01), amplitude = 0.5)
+        val notes = listOf(note(72), note(84))
+
+        val result = HarmonicRealnessFilter.apply(notes, audio, HarmonicRealnessFilter.PTI)
+
+        assertEquals(listOf(84), result.dropped.map { it.pitchMidi })
+        assertEquals(listOf(72), result.kept.map { it.pitchMidi })
+    }
+
+    @Test
+    fun `a real octave played above the lower key is kept`() {
+        // Both keys struck: the C6 carries its own 2nd and 3rd partial, which the
+        // C5's spectrum cannot supply at those frequencies.
+        val audio = mix(
+            tone(72, partials = listOf(1 to 1.0, 2 to 0.35, 3 to 0.12), amplitude = 0.5),
+            tone(84, partials = listOf(1 to 0.8, 2 to 0.3, 3 to 0.15), amplitude = 0.4),
+        )
+        val notes = listOf(note(72), note(84))
+
+        val result = HarmonicRealnessFilter.apply(notes, audio, HarmonicRealnessFilter.PTI)
+
+        assertTrue("a struck octave must survive: ${result.dropped.map { it.pitchMidi }}", result.dropped.isEmpty())
+        assertEquals(listOf(72, 84), result.kept.map { it.pitchMidi })
+    }
+
+    @Test
+    fun `the octave test belongs to the PTI preset only`() {
+        // Basic Pitch's v1.4 settings look only 2 and 3 octaves down, so the same
+        // octave line stays: the two engines have different failure modes and are
+        // not given the same rule.
+        val audio = tone(72, partials = listOf(1 to 1.0, 2 to 0.35, 3 to 0.12), amplitude = 0.5)
+        val notes = listOf(note(72), note(84))
+
+        val result = HarmonicRealnessFilter.apply(notes, audio)
+
+        assertTrue(result.dropped.isEmpty())
+    }
+
+    @Test
     fun `an empty take returns the notes unchanged`() {
         val notes = listOf(note(96))
         val result = HarmonicRealnessFilter.apply(notes, FloatArray(0))

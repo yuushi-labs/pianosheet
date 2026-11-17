@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -54,6 +55,14 @@ fun ScoreWebView(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
+                // A WebView added without layout params is measured WRAP_CONTENT,
+                // so the page got a ~120 px viewport (the #paper min-height) and
+                // only the top third of the first staff was visible.  It has to
+                // fill the Compose box it is put in.
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = false
                 settings.allowContentAccess = false
@@ -78,6 +87,17 @@ fun ScoreWebView(
             }
         },
         update = { webView ->
+            // The container can re-parent the view (rotation, activity recreation);
+            // the params are cheap to re-assert and the size is what the sheet needs.
+            if (webView.layoutParams !is ViewGroup.LayoutParams ||
+                webView.layoutParams.width != ViewGroup.LayoutParams.MATCH_PARENT ||
+                webView.layoutParams.height != ViewGroup.LayoutParams.MATCH_PARENT
+            ) {
+                webView.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            }
             controller.push(webView, musicXml, darkTheme, zoom, playhead)
         },
     )

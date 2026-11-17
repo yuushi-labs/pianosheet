@@ -84,6 +84,40 @@ class PianoSynthTest {
     }
 
     @Test
+    fun `the note ends without a step at the end of the release`() {
+        // 0.4.1 cut the waveform 55 ms after the key came up, when the exponential
+        // still stood at ~6 % of the note: a broadband click at every note end,
+        // which is the "tick riding on the right pitch" the user heard.
+        val duration = 0.4
+        val buffer = renderNote(60, duration)
+        val gate = (duration * sampleRate).toInt()
+        val end = ((duration + PianoSynth.RELEASE_SEC) * sampleRate).toInt()
+        val sounding = (gate - 2000 until gate).maxOf { abs(buffer[it]) }
+        val lastSamples = (end - 200 until end).map { abs(buffer[it]) }
+        assertTrue("the note sounded while the key was down: $sounding", sounding > 0.05f)
+        assertTrue(
+            "no step at the end: last 200 samples peak ${lastSamples.max()} against $sounding",
+            lastSamples.max() <= sounding * 0.02f,
+        )
+    }
+
+    @Test
+    fun `a released note keeps ringing like a damper`() {
+        // With 19 ms of decay the note was effectively silent 40 ms after the key
+        // came up; a damper takes ~150 ms.
+        val duration = 0.5
+        val buffer = renderNote(60, duration)
+        val gate = (duration * sampleRate).toInt()
+        fun level(from: Int, to: Int) = (from until to).sumOf { abs(buffer[it].toDouble()) } / (to - from)
+        val sounding = level(gate - 2000, gate)
+        val tail = level(gate + (0.10 * sampleRate).toInt(), gate + (0.14 * sampleRate).toInt())
+        assertTrue(
+            "the tail must still be audible 100 ms after the key: $tail vs $sounding",
+            tail > sounding * 0.02,
+        )
+    }
+
+    @Test
     fun `a note starts where it is asked to`() {
         val buffer = FloatArray(sampleRate)
         PianoSynth.addNote(buffer, sampleRate / 2, sampleRate, 69, 0.3)
