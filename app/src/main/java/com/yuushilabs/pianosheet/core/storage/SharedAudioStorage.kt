@@ -207,7 +207,7 @@ class SharedAudioStorage(private val gateway: SharedMediaGateway) {
         fun audioFileName(projectId: String, capturedAt: Long): String =
             "rec-${secondStamp(capturedAt)}-${shortId(projectId)}.wav"
 
-        /** `録音 11-17 21-15-20261117-2115.musicxml` style: the title plus a minute stamp. */
+        /** `録音-11-17-21-15-20261117-2115.musicxml`: the user's title plus a minute stamp. */
         fun documentFileName(fileName: String, savedAt: Long): String {
             val extension = fileName.substringAfterLast('.', "")
                 .lowercase()
