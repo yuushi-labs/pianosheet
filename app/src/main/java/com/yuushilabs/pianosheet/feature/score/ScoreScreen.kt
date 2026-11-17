@@ -220,6 +220,9 @@ fun ScoreScreen(
                         onShareMusicXml = { launchShare(context, viewModel.shareMusicXmlIntent()) },
                         onShareMidi = { launchShare(context, viewModel.shareMidiIntent()) },
                         onShareWav = { launchShare(context, viewModel.shareWavIntent()) },
+                        onSaveMusicXmlShared = viewModel::saveMusicXmlToSharedFolder,
+                        onSaveMidiShared = viewModel::saveMidiToSharedFolder,
+                        onSaveWavShared = viewModel::saveWavToSharedFolder,
                         onReanalyse = { onAnalyse(projectId) },
                     )
                 }
@@ -508,6 +511,9 @@ private fun ExportBar(
     onShareMusicXml: () -> Unit,
     onShareMidi: () -> Unit,
     onShareWav: () -> Unit,
+    onSaveMusicXmlShared: () -> Unit,
+    onSaveMidiShared: () -> Unit,
+    onSaveWavShared: () -> Unit,
     onReanalyse: () -> Unit,
 ) {
     var saveOpen by remember { mutableStateOf(false) }
@@ -544,6 +550,28 @@ private fun ExportBar(
                     onClick = {
                         saveOpen = false
                         onSaveWav()
+                    },
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("MusicXML を Documents/PianoSheet へ") },
+                    onClick = {
+                        saveOpen = false
+                        onSaveMusicXmlShared()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("MIDI を Documents/PianoSheet へ") },
+                    onClick = {
+                        saveOpen = false
+                        onSaveMidiShared()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("生録音を Music/PianoSheet へ") },
+                    onClick = {
+                        saveOpen = false
+                        onSaveWavShared()
                     },
                 )
             }

@@ -69,6 +69,10 @@ data class LiveUiState(
     val denoiseProfile: String? = null,
     val errorMessage: String? = null,
     val savedProjectId: String? = null,
+    /** Full path of the copy in `Music/PianoSheet`, once the take is saved. */
+    val sharedPath: String? = null,
+    /** Why the shared copy could not be written; the take itself is still safe. */
+    val sharedError: String? = null,
 ) {
     val noteCount: Int get() = notes.size
     val isSlow: Boolean get() = (latencyP95Ms ?: 0.0) > 2000.0
@@ -118,6 +122,8 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
                 notes = emptyList(),
                 errorMessage = null,
                 savedProjectId = null,
+                sharedPath = null,
+                sharedError = null,
                 elapsedMs = 0L,
                 activePitches = emptySet(),
                 latencyP95Ms = null,
@@ -311,6 +317,20 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             try {
+                // The public copy is written before the project row, so the detail
+                // screen can show its path straight away.  A failure here never
+                // costs the take: the working file in filesDir stays as it is.
+                val shared = withContext(Dispatchers.IO) {
+                    container.sharedAudioStorage.saveRecording(
+                        source = file,
+                        projectId = projectId,
+                        capturedAt = if (projectCreatedAt == 0L) System.currentTimeMillis() else projectCreatedAt,
+                    )
+                }
+                val sharedPath = shared.getOrNull()?.displayPath
+                val sharedError = shared.exceptionOrNull()?.message
+                if (sharedError != null) Log.w(TAG, "shared copy failed: $sharedError")
+
                 val now = System.currentTimeMillis()
                 val summary = ProjectSummary(
                     id = projectId,
@@ -332,6 +352,7 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
                     audioSource = source,
                     denoiseProfile = profile,
                     isUnprocessed = unprocessed,
+                    sharedPath = sharedPath,
                 )
                 withContext(Dispatchers.IO) {
                     container.projectRepository.saveSession(summary, recording, events)
@@ -342,6 +363,8 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
                         savedProjectId = projectId,
                         notes = events,
                         elapsedMs = duration,
+                        sharedPath = sharedPath,
+                        sharedError = sharedError,
                     )
                 }
             } catch (error: Exception) {

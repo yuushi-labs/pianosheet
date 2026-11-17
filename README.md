@@ -21,6 +21,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 | Phase 2.3: MusicXML・MIDI出力 / OSMD楽譜ビューワー | **実装済み** — [docs/phase2-3-export-report.md](docs/phase2-3-export-report.md) |
 | Phase 2.4: PianoVAM 定量評価・採譜/楽譜品質の改善（`0.3.1-phase2`） | **実装済み** — [docs/phase2-4-pianovam-report.md](docs/phase2-4-pianovam-report.md) |
 | Phase 3: ピアノ専用モデル PTI-ONNX の組み込み（`0.4.0-phase2`） | **実装済み** — [docs/phase3-pti-report.md](docs/phase3-pti-report.md) |
+| Phase 3.1: 録音・書き出しの共有フォルダ保存と再インポート（`0.4.1-phase2`） | **実装済み** — [docs/shared-storage-report.md](docs/shared-storage-report.md) |
 | Phase 4 以降（編集・Undo/Redo・PDF） | 未着手 |
 
 ### Phase 0 の要点
@@ -70,7 +71,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 - **ライブ譜面のレイアウト修正（`domain/live/LiveStaffLayout`）**: 同時発音は同じX、打鍵間隔は最低 15dp を確保、ト音/ヘ音のヘッダーは左固定で譜面のみ横スクロール、自動追従はアニメーションではなく即時スクロールで最新音を画面の68%位置に置く（260音・3分でも破綻しないことをテスト）。
 - **DB**: Room v3（`scores` テーブル追加）。`MIGRATION_1_2` / `MIGRATION_2_3` を実装し、`fallbackToDestructiveMigration` を廃止。Phase 1 の録音・暫定音符はそのまま残る。
 - **暫定音符一覧の並び順**: `onsetMs` 昇順 → `midiPitch` 昇順（5.17 の後に 5.08 が出る問題を修正）。
-- **テスト**: 217件（うち PianoVAM ベンチ1件は環境変数 `PIANOSHEET_PIANOVAM_DIR` 指定時のみ）（起動ガード、ライブ譜面レイアウト、テンポ/拍子/調性推定、量子化・小節・休符・左右振り分け・臨時記号、スコアのエンコード往復、ピアノシンセの波形/音高、リサンプラ、WAV 読み書き、最終解析の通し、マイグレーション）。
+- **テスト**: 237件（うち PianoVAM ベンチ1件は環境変数 `PIANOSHEET_PIANOVAM_DIR` 指定時のみ）（起動ガード、ライブ譜面レイアウト、テンポ/拍子/調性推定、量子化・小節・休符・左右振り分け・臨時記号、スコアのエンコード往復、ピアノシンセの波形/音高、リサンプラ、WAV 読み書き、最終解析の通し、マイグレーション）。
 
 ### 使い方（Phase 2）
 
@@ -79,6 +80,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 3. 完成楽譜では「楽譜 (Score) / 元音声 (Original)」を切り替えて再生。速度は 0.5〜1.5倍。再生位置に合わせて現在の小節が色づく。
 4. 右上の更新ボタンで再解析（設定のノイズ除去/ハムを変えたあとに有効）。
 5. 「生録音(WAV)を保存」で任意のフォルダへ、「共有」で共有シートへ。プロジェクト詳細画面からも同じ操作ができる。
+6. 録音は停止と同時に `Music/PianoSheet/` にも自動保存される（権限不要・アプリを入れ直しても残る）。アプリを入れ直したあとは、ホームの「このフォルダのWAVを読み込んで採譜」からその WAV を選ぶと、そのまま解析できる。
 
 ### Phase 3 の実装範囲（PTI-ONNX の組み込み）
 
@@ -107,7 +109,30 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
   SHA-256 を検証してから `assets/models/` へ置く。手動なら `python3 tools/fetch_pti_model.py`。
   APK には同梱されるので、インストール後の端末はオフラインで動く。
 - **テスト**: 実モデル出力10秒をフィクスチャにして、Kotlin の復号が Python（＝公式実装と完全一致）と
-  音符単位で一致することを検証。窓計画・ステッチ・進捗・キャンセル・フォールバックも含めて **217件**。
+  音符単位で一致することを検証。窓計画・ステッチ・進捗・キャンセル・フォールバックも含めて **237件**。
+
+### 共有フォルダ保存の実装範囲（0.4.1）
+
+録音をアプリ専用領域だけでなく、**アンインストールしても残る公開フォルダ**にも保存する。
+
+- **録音（`core/storage/SharedAudioStorage` + `AndroidSharedMediaGateway`）**: 停止時に無加工のまま
+  `MediaStore.Audio` へ `Music/PianoSheet/rec-YYYYMMDD-HHmmss-<projectId 8桁>.wav` として書き出す
+  （`RELATIVE_PATH=Music/PianoSheet`、`IS_PENDING` で作り終わってから公開）。権限ダイアログは出ない。
+  書き込み後に `DISPLAY_NAME` / `RELATIVE_PATH` を読み直すので、名前が ` (1)` になっても画面のパスは実際と一致する。
+- **フォールバック**: 録音は `MediaStore.Audio` → `MediaStore.Files`（同じフォルダ）、楽譜は本来の MIME →
+  `application/octet-stream` の2段。どちらも失敗しても **アプリ内の作業コピーはそのまま**残る
+  （解析・SAF 保存・共有は従来どおり可能）。詳細画面の「共有フォルダ（Music/PianoSheet）に保存」で後からやり直せる。
+- **書き出し楽譜**: 完成楽譜の「保存」メニューに「MusicXML / MIDI を Documents/PianoSheet へ」を追加。
+  SAF でフォルダを選ばず、ワンタップで `/storage/emulated/0/Documents/PianoSheet/` に入る。
+- **再インストール後**: ホームの「このフォルダのWAVを読み込んで採譜」が `OpenDocument` を
+  `EXTRA_INITIAL_URI=primary:Music/PianoSheet` で開き、選んだ WAV をヘッダー確認のうえ取り込んで即解析する
+  （`READ_MEDIA_AUDIO` などの追加権限は取らない）。
+- **表示**: ホームに保存先のフルパス、解析中画面に「録音はアプリの外にも保存されています: /storage/...」、
+  プロジェクト詳細に共有フォルダとアプリ内コピーのフルパスを出す。
+- **DB**: Room v4。`recording_assets.sharedPath` を追加（`MIGRATION_3_4`）。既存の録音は NULL のままで、
+  詳細画面から書き直せる。
+- **テスト**: `SharedAudioStorageTest` 19件（ファイル名・フルパス・2段フォールバック・失敗時に録音が残ること・
+  書き出し・SAF 取り込み・WAV 判定）。詳細は [docs/shared-storage-report.md](docs/shared-storage-report.md)。
 
 ### Phase 2 の既知の制限
 

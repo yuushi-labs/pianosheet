@@ -37,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.yuushilabs.pianosheet.core.storage.OpenSharedRecordingDocument
+import com.yuushilabs.pianosheet.core.storage.SharedAudioStorage
 import com.yuushilabs.pianosheet.domain.model.NoteSource
 import com.yuushilabs.pianosheet.domain.model.ProjectStatus
 import com.yuushilabs.pianosheet.domain.model.ProjectSummary
@@ -63,6 +65,14 @@ fun HomeScreen(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) viewModel.importAudio(uri)
+    }
+
+    // Same import, but the picker starts in Music/PianoSheet: the route back to
+    // takes recorded before a reinstall.
+    val sharedImportLauncher = rememberLauncherForActivityResult(
+        contract = OpenSharedRecordingDocument(),
+    ) { uri ->
+        if (uri != null) viewModel.importSharedWav(uri)
     }
 
     LaunchedEffect(message) {
@@ -121,6 +131,10 @@ fun HomeScreen(
             ) {
                 Text("音声ファイルをアップロード")
             }
+            Spacer(Modifier.height(10.dp))
+            SharedFolderCard(
+                onImport = { sharedImportLauncher.launch(arrayOf("audio/*")) },
+            )
             Spacer(Modifier.height(20.dp))
             Text(
                 "最近のプロジェクト",
@@ -142,6 +156,32 @@ fun HomeScreen(
                         ProjectCard(project = project, onClick = { onOpenProject(project.id) })
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SharedFolderCard(onImport: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text("録音の保存先", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "録音はアプリの中だけでなく、共通の音楽フォルダにも自動で保存されます。" +
+                    "アプリを入れ直してもファイルは残ります。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = SharedAudioStorage.folderPath(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+                Text("このフォルダのWAVを読み込んで採譜")
             }
         }
     }

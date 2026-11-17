@@ -68,6 +68,38 @@ class ProjectDetailViewModel(
         return container.wavExporter.shareIntent(File(path), title)
     }
 
+    /**
+     * Copies the untouched take into `Music/PianoSheet` (0.4.1).  Offered when the
+     * take predates the shared folder or the first write failed; the working file
+     * is left exactly where it is.
+     */
+    fun saveToSharedFolder() {
+        val current = _detail.value ?: return
+        val path = current.recording?.storagePath ?: return
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val saved = container.sharedAudioStorage.saveRecording(
+                    source = File(path),
+                    projectId = current.project.id,
+                    capturedAt = current.project.createdAt,
+                )
+                saved.getOrNull()?.let { file ->
+                    runCatching {
+                        container.projectRepository.updateSharedPath(current.project.id, file.displayPath)
+                    }
+                }
+                saved
+            }
+            _message.update {
+                result.fold(
+                    onSuccess = { file -> "共有フォルダに保存しました: ${file.displayPath}" },
+                    onFailure = { error -> error.message ?: "共有フォルダに保存できませんでした" },
+                )
+            }
+            if (result.isSuccess) refresh()
+        }
+    }
+
     fun suggestedFileName(): String = container.wavExporter.suggestedFileName(
         title = _detail.value?.project?.title ?: "PianoSheet",
         extension = _detail.value?.recording?.format ?: "wav",

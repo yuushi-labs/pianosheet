@@ -42,6 +42,12 @@ data class RecordingAssetEntity(
     val audioSource: String,
     val denoiseProfile: String?,
     val isUnprocessed: Boolean,
+    /**
+     * Full path of the copy in the public folder (`Music/PianoSheet`), when the
+     * shared write succeeded.  Null for takes saved before 0.4.1 and for an
+     * upload that only ever lived in the app's own storage.
+     */
+    val sharedPath: String? = null,
 )
 
 @Entity(

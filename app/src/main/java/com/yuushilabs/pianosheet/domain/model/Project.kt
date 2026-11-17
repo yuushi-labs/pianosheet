@@ -27,6 +27,12 @@ data class RecordingInfo(
     val denoiseProfile: String?,
     /** True when the take was captured through AudioSource.UNPROCESSED (no OS effects). */
     val isUnprocessed: Boolean,
+    /**
+     * Full path of the untouched copy in the public folder, e.g.
+     * `/storage/emulated/0/Music/PianoSheet/rec-20261117-211530-9f3c1a2b.wav`.
+     * Null when the shared write failed or the take predates 0.4.1.
+     */
+    val sharedPath: String? = null,
 )
 
 data class ProjectSummary(

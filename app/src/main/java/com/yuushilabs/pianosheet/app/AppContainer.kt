@@ -7,6 +7,8 @@ import androidx.room.Room
 import com.yuushilabs.pianosheet.core.audio.AudioStorage
 import com.yuushilabs.pianosheet.core.export.ScoreFileExporter
 import com.yuushilabs.pianosheet.core.export.WavExporter
+import com.yuushilabs.pianosheet.core.storage.AndroidSharedMediaGateway
+import com.yuushilabs.pianosheet.core.storage.SharedAudioStorage
 import com.yuushilabs.pianosheet.core.inference.BasicPitchConstants
 import com.yuushilabs.pianosheet.core.inference.BasicPitchDetector
 import com.yuushilabs.pianosheet.core.inference.BasicPitchModel
@@ -51,6 +53,14 @@ class AppContainer(context: Context) : Closeable {
     val audioStorage: AudioStorage by lazy { AudioStorage(appContext) }
 
     val wavExporter: WavExporter by lazy { WavExporter(appContext) }
+
+    /**
+     * Recordings and score exports written to `Music/PianoSheet` and
+     * `Documents/PianoSheet`, which survive an uninstall (0.4.1).
+     */
+    val sharedAudioStorage: SharedAudioStorage by lazy {
+        SharedAudioStorage(AndroidSharedMediaGateway(appContext))
+    }
 
     /** MusicXML / MIDI files for the finished score (spec §8). */
     val scoreFileExporter: ScoreFileExporter by lazy { ScoreFileExporter(appContext) }

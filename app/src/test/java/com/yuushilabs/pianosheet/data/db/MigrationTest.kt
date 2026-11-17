@@ -11,22 +11,24 @@ import org.junit.Test
 class MigrationTest {
 
     @Test
-    fun `the migration chain is contiguous from version 1 to 3`() {
+    fun `the migration chain is contiguous from version 1 to 4`() {
         val migrations = AppDatabase.ALL_MIGRATIONS
-        assertEquals(2, migrations.size)
+        assertEquals(3, migrations.size)
         assertEquals(1, migrations[0].startVersion)
         assertEquals(2, migrations[0].endVersion)
         assertEquals(2, migrations[1].startVersion)
         assertEquals(3, migrations[1].endVersion)
+        assertEquals(3, migrations[2].startVersion)
+        assertEquals(4, migrations[2].endVersion)
         // Every version in between has a migration: no destructive fallback needed.
         val covered = migrations.flatMap { listOf(it.startVersion, it.endVersion) }.toSet()
-        assertEquals(setOf(1, 2, 3), covered)
+        assertEquals(setOf(1, 2, 3, 4), covered)
     }
 
     @Test
     fun `the current schema version is the last migration target`() {
         val migrations = AppDatabase.ALL_MIGRATIONS
-        assertEquals(3, migrations.maxOf { it.endVersion })
+        assertEquals(4, migrations.maxOf { it.endVersion })
     }
 
     @Test
@@ -42,7 +44,20 @@ class MigrationTest {
         assertTrue(sql.contains("ON DELETE CASCADE"))
     }
 
+    @Test
+    fun `the shared path column is added by the migration`() {
+        // 0.4.1: the copy in Music/PianoSheet.  Nullable, so Phase 2 recordings
+        // keep their working file and simply gain an empty shared path.
+        assertEquals(3, AppDatabase.MIGRATION_3_4.startVersion)
+        assertEquals(4, AppDatabase.MIGRATION_3_4.endVersion)
+        val sql = SHARED_PATH_SQL
+        assertTrue(sql.contains("ALTER TABLE recording_assets ADD COLUMN sharedPath TEXT"))
+    }
+
     private companion object {
+        /** Mirrors [AppDatabase.MIGRATION_3_4]'s statement. */
+        const val SHARED_PATH_SQL = "ALTER TABLE recording_assets ADD COLUMN sharedPath TEXT"
+
         /** Mirrors [AppDatabase.MIGRATION_2_3]'s statement. */
         const val SCORE_TABLE_SQL = """
             CREATE TABLE IF NOT EXISTS `scores` (

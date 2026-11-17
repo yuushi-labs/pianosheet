@@ -69,6 +69,7 @@ class ProjectRepositoryImpl(
                 audioSource = recording.audioSource,
                 denoiseProfile = recording.denoiseProfile,
                 isUnprocessed = recording.isUnprocessed,
+                sharedPath = recording.sharedPath,
             ),
         )
         noteEventDao.deleteByProject(project.id)
@@ -127,6 +128,10 @@ class ProjectRepositoryImpl(
             ),
         )
         return summary
+    }
+
+    override suspend fun updateSharedPath(projectId: String, sharedPath: String) {
+        recordingAssetDao.updateSharedPath(projectId, sharedPath)
     }
 
     override suspend fun saveScore(score: Score, denoiseProfile: String?, analysisMs: Long) {
@@ -193,6 +198,7 @@ class ProjectRepositoryImpl(
         audioSource = audioSource,
         denoiseProfile = denoiseProfile,
         isUnprocessed = isUnprocessed,
+        sharedPath = sharedPath,
     )
 
     private fun NoteEventEntity.toNoteEvent() = NoteEvent(

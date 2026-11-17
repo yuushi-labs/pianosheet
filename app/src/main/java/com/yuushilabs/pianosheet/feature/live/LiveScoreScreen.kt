@@ -334,8 +334,23 @@ private fun ControlRow(
             }
 
             LivePhase.SAVED -> {
-                Text("保存しました", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.weight(1f))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("保存しました", style = MaterialTheme.typography.bodyMedium)
+                    val shared = state.sharedPath
+                    if (shared != null) {
+                        Text(
+                            text = "共有フォルダ: $shared",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else if (state.sharedError != null) {
+                        Text(
+                            text = "共有フォルダには保存できませんでした（録音はアプリ内にあります）",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
 
             LivePhase.ERROR -> {

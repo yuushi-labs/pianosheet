@@ -121,6 +121,7 @@ fun ProjectDetailScreen(
                         val intent = viewModel.shareWavIntent()
                         if (intent != null) context.startActivity(intent)
                     },
+                    onSaveToSharedFolder = viewModel::saveToSharedFolder,
                 )
             }
         }
@@ -134,6 +135,7 @@ private fun ColumnScope.ProjectDetailContent(
     onAnalyse: (Boolean) -> Unit,
     onSaveWav: () -> Unit,
     onShareWav: () -> Unit,
+    onSaveToSharedFolder: () -> Unit,
 ) {
     val project = detail.project
     val recording = detail.recording
@@ -158,8 +160,23 @@ private fun ColumnScope.ProjectDetailContent(
             )
             if (recording != null) {
                 Spacer(Modifier.height(4.dp))
+                // The copy outside the app: the one that survives an uninstall.
+                val sharedPath = recording.sharedPath
+                if (sharedPath != null) {
+                    Text(
+                        text = "共有フォルダ: $sharedPath",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Text(
+                        text = "共有フォルダ: まだ保存していません（この端末のアプリ内にのみあります）",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Text(
-                    text = "ファイル: ${recording.storagePath.substringAfterLast('/')}",
+                    text = "アプリ内: ${recording.storagePath}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -182,6 +199,13 @@ private fun ColumnScope.ProjectDetailContent(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onSaveWav) { Text("生録音を保存") }
                 OutlinedButton(onClick = onShareWav) { Text("共有") }
+            }
+            if (recording?.sharedPath == null) {
+                Spacer(Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = onSaveToSharedFolder,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("共有フォルダ（Music/PianoSheet）に保存") }
             }
         }
     }

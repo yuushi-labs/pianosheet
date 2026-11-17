@@ -172,6 +172,14 @@ fun AnalyzeScreen(
                     MaterialTheme.colorScheme.primary
                 },
             )
+            state.sharedPath?.let { path ->
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "録音はアプリの外にも保存されています: $path",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.height(26.dp))
             StageRow(FinalStage.PREPARING, state)

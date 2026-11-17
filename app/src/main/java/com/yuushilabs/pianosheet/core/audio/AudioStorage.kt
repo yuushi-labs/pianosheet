@@ -17,6 +17,9 @@ class AudioStorage(private val context: Context) {
     private val recordingsDir: File
         get() = File(context.filesDir, "recordings").apply { mkdirs() }
 
+    /** Where the working copies of every take live (`files/recordings`). */
+    val directory: File get() = recordingsDir
+
     fun newRecordingFile(projectId: String): File = File(recordingsDir, "rec-$projectId.wav")
 
     fun importFromUri(uri: Uri, projectId: String): File? {

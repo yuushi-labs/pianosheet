@@ -193,6 +193,73 @@ class ScoreViewModel(
         container.scoreFileExporter.midiFile(score)
     }
 
+    /** MusicXML straight into `Documents/PianoSheet`, no folder picking (0.4.1). */
+    fun saveMusicXmlToSharedFolder() {
+        val score = _state.value.score ?: return
+        val name = container.scoreFileExporter.suggestedFileName(score, MusicXmlExporter.FILE_EXTENSION)
+        saveToSharedFolder("MusicXML", MusicXmlExporter.MIME_TYPE) {
+            MusicXmlExporter.toMusicXml(score).toByteArray(Charsets.UTF_8) to name
+        }
+    }
+
+    /** MIDI straight into `Documents/PianoSheet`, no folder picking (0.4.1). */
+    fun saveMidiToSharedFolder() {
+        val score = _state.value.score ?: return
+        val name = container.scoreFileExporter.suggestedFileName(score, MidiExporter.FILE_EXTENSION)
+        saveToSharedFolder("MIDI", MidiExporter.MIME_TYPE) { MidiExporter.toBytes(score) to name }
+    }
+
+    /** Copies the untouched take into `Music/PianoSheet` again (0.4.1). */
+    fun saveWavToSharedFolder() {
+        val path = _state.value.recordingPath ?: return
+        val project = detail?.project
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val saved = container.sharedAudioStorage.saveRecording(
+                    source = File(path),
+                    projectId = project?.id ?: projectId,
+                    capturedAt = project?.createdAt ?: System.currentTimeMillis(),
+                )
+                saved.getOrNull()?.let { file ->
+                    runCatching { container.projectRepository.updateSharedPath(projectId, file.displayPath) }
+                }
+                saved
+            }
+            _state.update {
+                it.copy(
+                    message = result.fold(
+                        onSuccess = { file -> "生録音を共有フォルダに保存しました: ${file.displayPath}" },
+                        onFailure = { error -> error.message ?: "共有フォルダに保存できませんでした" },
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun saveToSharedFolder(
+        label: String,
+        mimeType: String,
+        build: () -> Pair<ByteArray, String>,
+    ) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { build() }.mapCatching { (bytes, name) ->
+                    container.sharedAudioStorage.saveDocument(bytes, name, mimeType).getOrThrow()
+                }
+            }
+            _state.update {
+                it.copy(
+                    message = result.fold(
+                        onSuccess = { file -> "$label を共有フォルダに保存しました: ${file.displayPath}" },
+                        onFailure = { error ->
+                            "$label を共有フォルダに保存できませんでした: ${error.message ?: "原因不明"}"
+                        },
+                    ),
+                )
+            }
+        }
+    }
+
     fun musicXmlSuggestedName(): String {
         val score = _state.value.score ?: return "PianoSheet.musicxml"
         return container.scoreFileExporter.suggestedFileName(score, MusicXmlExporter.FILE_EXTENSION)

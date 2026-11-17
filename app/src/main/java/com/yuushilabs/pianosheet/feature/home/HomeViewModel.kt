@@ -62,6 +62,38 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Reads a take back from `Music/PianoSheet` (0.4.1).  The shared folder only
+     * holds WAVs, so this path checks the header and goes straight to analysis;
+     * anything else falls back to the generic import.
+     */
+    fun importSharedWav(uri: Uri) {
+        viewModelScope.launch {
+            val projectId = withContext(Dispatchers.IO) {
+                runCatching {
+                    val id = UUID.randomUUID().toString()
+                    val file = container.sharedAudioStorage
+                        .importRecording(uri.toString(), id, container.audioStorage.directory)
+                        .getOrThrow()
+                    val name = container.audioStorage.displayName(uri) ?: file.name
+                    container.projectRepository.createUploadedProject(
+                        id = id,
+                        title = name.substringBeforeLast('.', name),
+                        file = file,
+                        originalFileName = name,
+                    )
+                    id
+                }.onFailure { Log.w(TAG, "shared import failed", it) }.getOrNull()
+            }
+            if (projectId == null) {
+                importAudio(uri)
+            } else {
+                _message.value = "Music/PianoSheet から読み込みました。楽譜を作成します…"
+                _importedProjectId.value = projectId
+            }
+        }
+    }
+
     /** WAV (RIFF/WAVE) is what the final analysis can read on its own. */
     private fun isWav(file: java.io.File): Boolean = runCatching {
         file.inputStream().use { input ->

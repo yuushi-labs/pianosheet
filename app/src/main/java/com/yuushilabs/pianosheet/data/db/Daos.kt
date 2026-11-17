@@ -31,6 +31,10 @@ interface RecordingAssetDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(asset: RecordingAssetEntity)
+
+    /** Records where the copy in the public folder went (0.4.1). */
+    @Query("UPDATE recording_assets SET sharedPath = :sharedPath WHERE projectId = :projectId")
+    suspend fun updateSharedPath(projectId: String, sharedPath: String)
 }
 
 @Dao

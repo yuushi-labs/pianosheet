@@ -42,6 +42,8 @@ data class AnalyzeUiState(
     val engineLabel: String = "",
     /** Why the PTI pass was skipped, when it was. */
     val engineFallback: String? = null,
+    /** Full path of the take's copy in `Music/PianoSheet`, when it was saved there. */
+    val sharedPath: String? = null,
 ) {
     val percent: Int get() = (fraction * 100).toInt().coerceIn(0, 100)
 }
@@ -81,6 +83,7 @@ class AnalyzeViewModel(
                     return@launch
                 }
                 _state.update { it.copy(title = detail.project.title) }
+                _state.update { it.copy(sharedPath = detail.recording?.sharedPath) }
                 liveNoteCount = detail.notes.size
                 if (!force && detail.score != null) {
                     _state.update {

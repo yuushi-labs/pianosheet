@@ -30,6 +30,9 @@ interface ProjectRepository {
     /** Stores the finished score from the final analysis (Phase 2). */
     suspend fun saveScore(score: Score, denoiseProfile: String?, analysisMs: Long)
 
+    /** Remembers the path of a take that was copied to a public folder (0.4.1). */
+    suspend fun updateSharedPath(projectId: String, sharedPath: String)
+
     suspend fun loadScore(projectId: String): Score?
 
     suspend fun updateStatus(id: String, status: ProjectStatus, noteCount: Int)
