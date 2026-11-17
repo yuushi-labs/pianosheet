@@ -261,6 +261,22 @@ private fun InputStatusRow(state: LiveUiState) {
                     .background(MaterialTheme.colorScheme.primary),
             )
         }
+        state.inputWarning?.let { warning ->
+            Text(
+                text = warning,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        if (state.inputRmsDbfs > -120f) {
+            Text(
+                text = "入力 %.0f dBFS（ピーク %.0f dBFS）".format(state.inputRmsDbfs, state.inputPeakDbfs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
         state.denoiseProfile?.let { profile ->
             Text(
                 text = "ノイズ除去: $profile（解析用のみ・録音は無加工）",

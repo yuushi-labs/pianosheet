@@ -66,18 +66,32 @@ object KeyEstimator {
             }
         }
 
-        val fifths = if (bestMode == Mode.MAJOR) {
-            MAJOR_FIFTHS_BY_TONIC[bestTonic]
-        } else {
+        val fifths = when (bestMode) {
+            Mode.MAJOR -> MAJOR_FIFTHS_BY_TONIC[bestTonic]
             // Relative major is a minor third above the minor tonic.
-            MAJOR_FIFTHS_BY_TONIC[(bestTonic + 3) % 12]
-        }
+            Mode.MINOR -> MAJOR_FIFTHS_BY_TONIC[(bestTonic + 3) % 12]
+        }.let(::simplifyEnharmonic)
         val margin = if (secondScore.isFinite()) (bestScore - secondScore).coerceAtLeast(0.0) else 0.0
         val confidence = (bestScore.coerceIn(0.0, 1.0) * (1.0 - margin * 2.0).coerceIn(0.35, 1.0))
         return KeyEstimate(
             keySignature = KeySignature(fifths = fifths, mode = bestMode),
             confidence = (confidence * 1000.0).roundToInt() / 1000.0,
         )
+    }
+
+    /**
+     * Writes the key with fewer accidentals when the enharmonic twin has them.
+     *
+     * C# major (7 sharps) and D♭ major (5 flats) are the same key; a player reads
+     * the second far more easily, and it also removes the double sharps a 7-sharp
+     * signature forces on chromatic notes.  The user's own take came out as C#
+     * major before this: the score printed F𝄪 and C𝄪 where the music has G and C.
+     * Only an actual reduction is applied (F# major 6 → G♭ major 6 is left alone).
+     */
+    fun simplifyEnharmonic(fifths: Int): Int = when {
+        fifths > 5 && 12 - fifths < fifths -> fifths - 12
+        fifths < -5 && 12 + fifths < -fifths -> fifths + 12
+        else -> fifths
     }
 
     private fun correlation(histogram: DoubleArray, profile: DoubleArray, tonic: Int): Double {

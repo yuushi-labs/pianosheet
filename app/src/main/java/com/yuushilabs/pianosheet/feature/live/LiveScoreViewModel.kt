@@ -9,6 +9,7 @@ import com.yuushilabs.pianosheet.PianoSheetApplication
 import com.yuushilabs.pianosheet.core.audio.AudioCapture
 import com.yuushilabs.pianosheet.core.audio.WavFileWriter
 import com.yuushilabs.pianosheet.core.dsp.DenoiseConfig
+import com.yuushilabs.pianosheet.core.audio.InputMonitor
 import com.yuushilabs.pianosheet.core.dsp.StreamingDenoiser
 import com.yuushilabs.pianosheet.core.dsp.StreamingResampler
 import com.yuushilabs.pianosheet.core.inference.BasicPitchDetector
@@ -56,6 +57,11 @@ data class LiveUiState(
     val elapsedMs: Long = 0L,
     val activePitches: Set<Int> = emptySet(),
     val inputLevel: Float = 0f,
+    /** dBFS of the sustained RMS / peak, so a quiet mic is visible as a number. */
+    val inputRmsDbfs: Float = -120f,
+    val inputPeakDbfs: Float = -120f,
+    /** Clipping / too-quiet / silence, from [InputMonitor]. */
+    val inputWarning: String? = null,
     val captureSource: String = "",
     val unprocessed: Boolean = true,
     val latencyP95Ms: Double? = null,
@@ -98,6 +104,7 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
 
     @Volatile
     private var liveDenoiser: StreamingDenoiser? = null
+    private val inputMonitor = InputMonitor(sampleRate = 22050)
 
     @Volatile
     private var liveResampler: StreamingResampler? = null
@@ -127,6 +134,7 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
                 // Loading the ONNX session is the only slow part; it happens once
                 // per process and never on the main thread.
                 val model = withContext(Dispatchers.Default) { container.basicPitchModel }
+                inputMonitor.reset()
                 val newEngine = LiveTranscriptionEngine(LiveConfig(), BasicPitchDetector(model))
                 newEngine.startSession()
                 engine = newEngine
@@ -192,6 +200,8 @@ class LiveScoreViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun onAudioChunk(chunk: FloatArray) {
+        // What the microphone is giving us, independent of the transcription.
+        inputMonitor.update(chunk)
         // The raw take is written exactly as captured (spec §20.1).
         try {
             writer?.write(chunk)

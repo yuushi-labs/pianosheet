@@ -85,10 +85,37 @@ class HarmonicRealnessFilterTest {
 
     @Test
     fun `a weak second partial alone is not enough to keep a line`() {
-        // 2nd partial just under the 10 % floor and nothing at 3f0.
-        val audio = tone(84, partials = listOf(1 to 1.0, 2 to 0.06), amplitude = 0.4)
+        // 2nd partial just under the 10 % floor and nothing at 3f0, struck with the
+        // C4 that owns the 8th partial.
+        val audio = mix(
+            tone(60, partials = listOf(1 to 1.0, 2 to 0.45, 3 to 0.25)),
+            tone(84, partials = listOf(1 to 1.0, 2 to 0.06), amplitude = 0.4),
+        )
+        val result = HarmonicRealnessFilter.apply(listOf(note(60), note(84)), audio)
+        assertEquals(listOf(84), result.dropped.map { it.pitchMidi })
+    }
+
+    @Test
+    fun `a pure line with no lower key at that moment is kept`() {
+        // The PianoVAM case: a real high note whose partials are masked by the
+        // rest of the chord, with no key two or three octaves below it.  The bare
+        // pure-line rule deleted notes like this (0.02 micro F1 on the test split).
+        val audio = tone(84, partials = listOf(1 to 1.0), amplitude = 0.3)
         val result = HarmonicRealnessFilter.apply(listOf(note(84)), audio)
-        assertEquals(1, result.dropped.size)
+
+        assertTrue("a lone high key strike must survive: ${result.dropped.size} dropped", result.dropped.isEmpty())
+        assertEquals(listOf(84), result.kept.map { it.pitchMidi })
+    }
+
+    @Test
+    fun `an owner that is far away in time does not make a ghost`() {
+        val audio = mix(
+            tone(60, partials = listOf(1 to 1.0, 2 to 0.45, 3 to 0.25)),
+            tone(84, partials = listOf(1 to 1.0), amplitude = 0.3),
+        )
+        // C4 at 0 s, the pure C6 line 900 ms later: too far apart to be its partial.
+        val result = HarmonicRealnessFilter.apply(listOf(note(60, 0.0), note(84, 900.0)), audio)
+        assertTrue(result.dropped.isEmpty())
     }
 
     @Test
@@ -122,15 +149,17 @@ class HarmonicRealnessFilterTest {
         // A pure C7 line at 5 s, a real G4 at 10 s: the line goes, the note stays.
         val audio = FloatArray((12.0 * sampleRate).toInt())
         place(audio, tone(60, seconds = 1.0, partials = listOf(1 to 1.0, 2 to 0.4, 3 to 0.2)), 0.0)
+        // A pure C7 line at 5 s, three octaves above the C4 struck with it.
+        place(audio, tone(60, seconds = 1.0, partials = listOf(1 to 1.0, 2 to 0.4, 3 to 0.2)), 5.0)
         place(audio, tone(96, seconds = 1.0, amplitude = 0.1), 5.0)
         place(audio, tone(67, seconds = 1.0, partials = listOf(1 to 1.0, 2 to 0.4, 3 to 0.2)), 10.0)
-        val notes = listOf(note(60, 0.0), note(96, 5000.0), note(67, 10000.0))
+        val notes = listOf(note(60, 0.0), note(60, 5000.0), note(96, 5000.0), note(67, 10000.0))
 
         val result = HarmonicRealnessFilter.apply(notes, audio)
 
         assertEquals(listOf(96), result.dropped.map { it.pitchMidi })
-        assertEquals(listOf(60, 67), result.kept.map { it.pitchMidi })
-        assertEquals(listOf(0, 1), result.kept.map { it.sequence })
+        assertEquals(listOf(60, 60, 67), result.kept.map { it.pitchMidi })
+        assertEquals(listOf(0, 1, 2), result.kept.map { it.sequence })
     }
 
     @Test

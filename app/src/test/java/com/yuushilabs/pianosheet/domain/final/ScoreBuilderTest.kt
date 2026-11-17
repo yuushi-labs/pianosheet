@@ -192,13 +192,23 @@ class ScoreBuilderTest {
 
     @Test
     fun `the staff of a note follows its spelled letter, not the raw semitone`() {
-        val score = build(listOf(note(61, 0.0), note(63, 0.5), note(66, 1.0), note(68, 1.5)))
-        // C#4 must sit on the C line/space (letter C, octave 4), D#4 on D.
-        val cSharp = score.notes.first { it.midiPitch == 61 }
+        // In C major C#4 sits on the C line/space and D#4 on D.
+        val cSharp = PitchSpeller.spell(61, KeySignature.C_MAJOR)
         assertEquals(0, cSharp.letter)
         assertEquals(4, cSharp.octave)
-        val dSharp = score.notes.first { it.midiPitch == 63 }
-        assertEquals(1, dSharp.letter)
+        // A raised fourth is written as F#, not G♭; a raised second without a
+        // signature goes to the flat side (D# → E♭), which is the existing
+        // convention of the speller and is asserted here so it cannot drift.
+        assertEquals(3, PitchSpeller.spell(66, KeySignature.C_MAJOR).letter)
+        assertEquals(2, PitchSpeller.spell(63, KeySignature.C_MAJOR).letter)
+
+        // Whatever key the builder estimates, every written note follows it.
+        val score = build(listOf(note(61, 0.0), note(63, 0.5), note(66, 1.0), note(68, 1.5)))
+        for (written in score.notes) {
+            val spelled = PitchSpeller.spell(written.midiPitch, score.keySignature)
+            assertEquals("${written.midiPitch}: letter", spelled.letter, written.letter)
+            assertEquals("${written.midiPitch}: octave", spelled.octave, written.octave)
+        }
     }
 
     @Test
@@ -211,4 +221,33 @@ class ScoreBuilderTest {
         assertEquals(0, c4.letter)
         assertEquals(4, c4.octave)
     }
+
+    @Test
+    fun `a performance that starts mid-bar gets a pickup measure`() {
+        // A strong beat every four beats, but the first note sits 1.5 beats before
+        // the first downbeat: a quarter of a bar of pickup.
+        val notes = ArrayList<FinalNote>()
+        notes.add(note(60, 0.0, duration = 0.4))
+        notes.add(note(62, 0.5, duration = 0.4))
+        notes.add(note(64, 1.0, duration = 0.4))
+        for (measure in 0 until 6) {
+            val start = 1.5 + measure * (4 * 0.5)
+            notes.add(note(48, start, duration = 0.45, amplitude = 1.0f))
+            notes.add(note(55, start + 0.5, duration = 0.45))
+            notes.add(note(60, start + 1.0, duration = 0.45))
+            notes.add(note(64, start + 1.5, duration = 0.45))
+        }
+        val score = build(notes)
+        assertEquals("4/4", score.timeSignature, com.yuushilabs.pianosheet.domain.score.TimeSignature.COMMON)
+        assertEquals("first measure is the pickup", true, score.measures.first().beats < 4.0)
+        val pickup = score.measures.first()
+        assertEquals("the next bar starts after the pickup", pickup.beats, score.measures[1].startBeat, 1e-9)
+        // The first note of the pickup belongs to measure 0, the first downbeat note to 1.
+        assertEquals(0, score.notes.first { it.midiPitch == 60 && it.startBeat < 1e-6 }.measureIndex)
+        val downbeatNote = score.notes.first { it.midiBeatOnBarLine(pickup) }
+        assertTrue(downbeatNote.measureIndex >= 1)
+    }
+
+    private fun com.yuushilabs.pianosheet.domain.score.ScoreNote.midiBeatOnBarLine(measure: com.yuushilabs.pianosheet.domain.score.ScoreMeasure): Boolean =
+        kotlin.math.abs(startBeat - measure.endBeat) < 1e-6
 }

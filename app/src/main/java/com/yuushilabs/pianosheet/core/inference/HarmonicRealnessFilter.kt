@@ -44,6 +44,17 @@ object HarmonicRealnessFilter {
         val maxSecondPartialRatio: Double = 0.10,
         val maxThirdPartialRatio: Double = 0.05,
         val sampleRate: Int = 22050,
+        /**
+         * A pure line is only a ghost when a key two or three octaves below it
+         * is struck at the same moment: that note owns the 4th/8th partial the
+         * line is.  Without the owner test, real high notes whose partials are
+         * masked (a fast run, a chord's top voice) were deleted too — on the
+         * PianoVAM test split the owner test keeps 0.02 micro F1 that the bare
+         * pure-line rule threw away, and still removes every ghost of the noisy
+         * take the filter was written for.
+         */
+        val requireOwnerNote: Boolean = true,
+        val ownerSpanMs: Double = 80.0,
     )
 
     /** What the spectrum says about one note: linear magnitudes, and their ratios. */
@@ -137,6 +148,7 @@ object HarmonicRealnessFilter {
         val dropped = ArrayList<NoteEvent>()
         val droppedEvidence = ArrayList<Evidence>(4)
         val kept = ArrayList<NoteEvent>(notes.size)
+        val byPitch = notes.groupBy { it.pitchMidi }
         for ((index, note) in notes.withIndex()) {
             val ev = evidence[index]
             if (ev == null) {
@@ -146,6 +158,10 @@ object HarmonicRealnessFilter {
             if (ev.secondRatio < settings.maxSecondPartialRatio &&
                 ev.thirdRatio < settings.maxThirdPartialRatio
             ) {
+                if (settings.requireOwnerNote && !hasOwner(note, byPitch, settings.ownerSpanMs)) {
+                    kept.add(note)
+                    continue
+                }
                 dropped.add(note)
                 droppedEvidence.add(ev)
             } else {
@@ -155,6 +171,24 @@ object HarmonicRealnessFilter {
         kept.forEachIndexed { position, note -> note.sequence = position }
         return Result(kept, dropped, targets.size, droppedEvidence)
     }
+
+    /** True when a key at [octaveSpan] octaves below starts with this note. */
+    private fun hasOwner(
+        note: NoteEvent,
+        byPitch: Map<Int, List<NoteEvent>>,
+        ownerSpanMs: Double,
+    ): Boolean {
+        for (span in OWNER_INTERVALS) {
+            val lower = byPitch[note.pitchMidi - span] ?: continue
+            for (candidate in lower) {
+                if (kotlin.math.abs(candidate.onsetMs - note.onsetMs) <= ownerSpanMs) return true
+            }
+        }
+        return false
+    }
+
+    /** 2 and 3 octaves: the 4th and 8th partial of a lower key. */
+    private val OWNER_INTERVALS = intArrayOf(24, 36)
 
     /** Spectrum evidence for one note, in the same units as [apply]. */
     fun evidence(

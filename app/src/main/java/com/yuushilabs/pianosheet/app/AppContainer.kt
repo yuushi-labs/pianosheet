@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.yuushilabs.pianosheet.core.audio.AudioStorage
 import com.yuushilabs.pianosheet.core.export.ScoreFileExporter
 import com.yuushilabs.pianosheet.core.export.WavExporter
+import com.yuushilabs.pianosheet.core.inference.BasicPitchConstants
 import com.yuushilabs.pianosheet.core.inference.BasicPitchDetector
 import com.yuushilabs.pianosheet.core.inference.BasicPitchModel
 import com.yuushilabs.pianosheet.data.ProjectRepositoryImpl
@@ -53,7 +54,12 @@ class AppContainer(context: Context) : Closeable {
 
     /** The final analysis shares the one ONNX session with the live path. */
     val finalTranscriber: FinalTranscriber by lazy {
-        FinalTranscriber(BasicPitchDetector(basicPitchModel))
+        FinalTranscriber(
+            BasicPitchDetector(
+                model = basicPitchModel,
+                onsetThreshold = BasicPitchConstants.FINAL_ONSET_THRESHOLD,
+            ),
+        )
     }
 
     override fun close() {

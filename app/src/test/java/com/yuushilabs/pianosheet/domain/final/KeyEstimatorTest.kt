@@ -64,4 +64,25 @@ class KeyEstimatorTest {
         assertEquals(0, estimate.keySignature.fifths)
         assertEquals(0.0, estimate.confidence, 1e-6)
     }
+
+    @Test
+    fun `seven sharps are written as the five-flat twin`() {
+        // C# major and D♭ major are the same key; only one of them is readable.
+        assertEquals(-5, KeyEstimator.simplifyEnharmonic(7))
+        assertEquals(5, KeyEstimator.simplifyEnharmonic(-7))
+        // Six has no twin with fewer accidentals, so it stays.
+        assertEquals(6, KeyEstimator.simplifyEnharmonic(6))
+        assertEquals(-6, KeyEstimator.simplifyEnharmonic(-6))
+        assertEquals(2, KeyEstimator.simplifyEnharmonic(2))
+    }
+
+    @Test
+    fun `a C sharp major pitch set comes back as five flats`() {
+        val pitches = listOf(1, 3, 5, 6, 8, 10, 0).flatMap { pc ->
+            listOf(KeyEstimator.PitchWeight(60 + pc, 1.0), KeyEstimator.PitchWeight(72 + pc, 0.6))
+        }
+        val estimate = KeyEstimator.estimate(pitches)
+        assertEquals(com.yuushilabs.pianosheet.domain.score.Mode.MAJOR, estimate.keySignature.mode)
+        assertTrue("fifths ${estimate.keySignature.fifths}", estimate.keySignature.fifths in -5..5)
+    }
 }

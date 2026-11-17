@@ -75,4 +75,58 @@ class TimeSignatureEstimatorTest {
         val flat = (0 until 24).map { TimeSignatureEstimator.BeatOnset(it.toDouble(), 1.0) }
         assertEquals(TimeSignature.COMMON, TimeSignatureEstimator.estimate(flat).timeSignature)
     }
+
+    @Test
+    fun `an anacrusis moves the downbeat instead of confusing the meter`() {
+        // A 3/4 waltz that starts on beat 3: one beat of pickup, then full bars.
+        val onsets = ArrayList<TimeSignatureEstimator.BeatOnset>()
+        onsets.add(TimeSignatureEstimator.BeatOnset(0.0, 0.8))
+        for (measure in 0 until 10) {
+            val start = 1.0 + measure * 3.0
+            onsets.add(TimeSignatureEstimator.BeatOnset(start, 3.0))
+            onsets.add(TimeSignatureEstimator.BeatOnset(start + 1.0, 0.8))
+            onsets.add(TimeSignatureEstimator.BeatOnset(start + 2.0, 0.8))
+        }
+        val estimate = TimeSignatureEstimator.estimate(onsets)
+        assertEquals(com.yuushilabs.pianosheet.domain.score.TimeSignature.WALTZ, estimate.timeSignature)
+        assertEquals("downbeat sits one beat after the first note", 1.0, estimate.phaseBeats, 1e-9)
+    }
+
+    @Test
+    fun `a plain duple pulse stays 4-4 rather than becoming 2-4`() {
+        val again = TimeSignatureEstimator.estimate(pattern(TimeSignature.COMMON, measures = 10, weak = 1.0))
+        assertEquals(com.yuushilabs.pianosheet.domain.score.TimeSignature.COMMON, again.timeSignature)
+    }
+
+    @Test
+    fun `a genuine march signature with accent on 1 and 2 wins 2-4`() {
+        // 2/4 march: every bar has two beats, both accented, bars of 4 beats have
+        // no stronger first-beat accent to explain.
+        val onsets = ArrayList<TimeSignatureEstimator.BeatOnset>()
+        for (beat in 0 until 40) {
+            val inBar = beat % 2
+            val weight = if (inBar == 0) 2.5 else 1.4
+            onsets.add(TimeSignatureEstimator.BeatOnset(beat.toDouble(), weight))
+        }
+        val estimate = TimeSignatureEstimator.estimate(onsets)
+        assertTrue("meter ${estimate.timeSignature}", estimate.timeSignature.beatsPerMeasure in 2.0..4.0)
+        assertEquals(0.0, estimate.phaseBeats, 1e-9)
+    }
+
+    @Test
+    fun `the phase of a 4-4 performance is reported`() {
+        val onsets = ArrayList<TimeSignatureEstimator.BeatOnset>()
+        onsets.add(TimeSignatureEstimator.BeatOnset(0.0, 0.5))
+        onsets.add(TimeSignatureEstimator.BeatOnset(0.5, 0.5))
+        onsets.add(TimeSignatureEstimator.BeatOnset(1.0, 0.5))
+        for (measure in 0 until 8) {
+            val start = 1.5 + measure * 4.0
+            for (beat in 0 until 4) {
+                onsets.add(TimeSignatureEstimator.BeatOnset(start + beat, if (beat == 0) 3.0 else 0.7))
+            }
+        }
+        val estimate = TimeSignatureEstimator.estimate(onsets)
+        assertEquals(com.yuushilabs.pianosheet.domain.score.TimeSignature.COMMON, estimate.timeSignature)
+        assertEquals(1.5, estimate.phaseBeats, 1e-9)
+    }
 }

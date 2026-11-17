@@ -131,7 +131,10 @@ class RealTakeAnalysisTest {
             "meter " + score.timeSignature.label + " must still be a duple/triple/quadruple meter",
             score.timeSignature.beatsPerMeasure in 2.0..4.0,
         )
-        assertEquals("the take is built on C# and G#", 7, score.keySignature.fifths)
+        // Same key, written the readable way: C# major (7 sharps) is D♭ major
+        // (5 flats).  A 7-sharp signature forces double sharps onto the
+        // chromatic notes (F𝄪 for G), which no player would read.
+        assertEquals("the take is built on C#/D♭ and G#/A♭", -5, score.keySignature.fifths)
         val highNotes = merged.notes.count { it.pitchMidi >= 84 }
         assertTrue("high-register ghosts left: $highNotes of ${merged.notes.size}", highNotes <= merged.notes.size / 8)
         assertTrue("notes ${score.noteCount}", score.noteCount in 80..260)

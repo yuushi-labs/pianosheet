@@ -90,13 +90,22 @@ class ExportRealTakeTest {
 
     private fun Element.text(tag: String): String? = child(tag)?.textContent?.trim()
 
-    /** Every measure must hold exactly the meter, in both staves. */
+    /**
+     * Every measure must hold exactly its own length in both staves: the meter,
+     * except for a pickup (anacrusis) measure, which holds the beats before the
+     * first downbeat and is marked `implicit="yes"`.
+     */
     private fun assertMeasureArithmetic(score: Score, root: Element) {
         val divisions = MusicXmlExporter.divisionsFor(score, EXPORT_OPTIONS)
-        val measureTicks = (score.timeSignature.beatsPerMeasure * divisions).roundToInt()
         val measures = root.child("part")!!.children("measure")
         assertEquals(score.measures.size, measures.size)
         for ((index, measure) in measures.withIndex()) {
+            val measureTicks = (score.measures[index].beats * divisions).roundToInt()
+            if (index == 0 && score.measures.size > 1 &&
+                score.measures[0].beats < score.timeSignature.beatsPerMeasure - 1e-6
+            ) {
+                assertEquals("pickup measure must be implicit", "yes", measure.getAttribute("implicit"))
+            }
             val perStaff = HashMap<Int, Int>()
             for (note in measure.children("note")) {
                 if (note.child("chord") != null) continue

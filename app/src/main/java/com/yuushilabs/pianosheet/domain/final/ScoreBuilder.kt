@@ -98,12 +98,30 @@ object ScoreBuilder {
             )
         }
 
+        // Metrical accent is heard from the bass and the loudness, not from the
+        // number of notes in a chord: a chord's four upper voices used to outweigh
+        // the bass note that marks the bar, which put the downbeat on beat 2 (a
+        // 3/4 Gymnopédie came out as 2/4).  The lowest note of an attack keeps its
+        // weight and the others count for [UPPER_VOICE_WEIGHT] of theirs.
+        val attackWeight = HashMap<Double, Double>()
+        val lowestOfAttack = HashMap<Double, Int>()
+        for (item in working) {
+            val slot = Math.round(item.startBeat / TimeSignatureEstimator.GRID) * TimeSignatureEstimator.GRID
+            val base = (item.note.amplitude.toDouble().coerceIn(0.05, 1.0)) *
+                (0.5 + 0.5 * item.durationBeats.coerceAtMost(4.0))
+            attackWeight[slot] = (attackWeight[slot] ?: 0.0) + base
+            val lowest = lowestOfAttack[slot]
+            if (lowest == null || item.note.pitch < lowest) lowestOfAttack[slot] = item.note.pitch
+        }
         val meter = TimeSignatureEstimator.estimate(
-            working.map {
+            working.map { item ->
+                val slot = Math.round(item.startBeat / TimeSignatureEstimator.GRID) * TimeSignatureEstimator.GRID
+                val base = (item.note.amplitude.toDouble().coerceIn(0.05, 1.0)) *
+                    (0.5 + 0.5 * item.durationBeats.coerceAtMost(4.0))
+                val isBass = lowestOfAttack[slot] == item.note.pitch
                 TimeSignatureEstimator.BeatOnset(
-                    beat = it.startBeat,
-                    weight = (it.note.amplitude.toDouble().coerceIn(0.05, 1.0)) *
-                        (0.5 + 0.5 * it.durationBeats.coerceAtMost(4.0)),
+                    beat = item.startBeat,
+                    weight = base * (if (isBass) 1.0 else UPPER_VOICE_WEIGHT),
                 )
             },
         )
@@ -111,10 +129,14 @@ object ScoreBuilder {
         val beatsPerMeasure = timeSignature.beatsPerMeasure
 
         val lastBeat = working.maxOf { it.startBeat + it.durationBeats }
-        val measureCount = ScoreMath
-            .measureCountFor(lastBeat + BEAT_TAIL, timeSignature)
-            .coerceAtMost(options.maxMeasures)
-        val measures = ScoreMath.measureStartBeats(timeSignature, measureCount)
+        // The first downbeat is where the meter estimator found the accents; the
+        // notes before it are a pickup measure (anacrusis), not a shifted bar.
+        val measures = buildMeasures(
+            timeSignature = timeSignature,
+            phaseBeats = meter.phaseBeats,
+            lastBeat = lastBeat + BEAT_TAIL,
+            maxMeasures = options.maxMeasures,
+        )
 
         val key = KeyEstimator.estimate(
             working.map { KeyEstimator.PitchWeight(it.note.pitch, it.durationBeats) },
@@ -205,13 +227,46 @@ object ScoreBuilder {
             notes = notesOut,
             rests = rests,
             scoreStartSec = originSec,
-            durationSec = maxOf(durationSec, measureCount * beatsPerMeasure * beatSec),
+            durationSec = maxOf(durationSec, measures.last().endBeat * beatSec),
             detector = detector,
             createdAt = createdAt,
             liveMatched = liveMatched,
             analysisOnly = analysisOnly,
             liveOnly = liveOnly,
         )
+    }
+
+    /**
+     * Bars placed on the estimated downbeat phase.
+     *
+     * A performance that starts mid-bar gets a short first measure ([phaseBeats]
+     * long, written with `implicit="yes"` in MusicXML) and full measures after it;
+     * starting every take on a downbeat was what put the bar lines on the wrong
+     * side of the accents on the PianoVAM takes (bar-accent ratio 1.01 → 1.20).
+     */
+    /** Share of an upper voice's weight in the metrical accent (bass keeps 1.0). */
+    private const val UPPER_VOICE_WEIGHT = 0.3
+
+    private fun buildMeasures(
+        timeSignature: TimeSignature,
+        phaseBeats: Double,
+        lastBeat: Double,
+        maxMeasures: Int,
+    ): List<ScoreMeasure> {
+        val per = timeSignature.beatsPerMeasure
+        val out = ArrayList<ScoreMeasure>()
+        var start = 0.0
+        if (phaseBeats > 1e-6) {
+            val pickup = phaseBeats.coerceAtMost(per)
+            out.add(ScoreMeasure(index = 0, startBeat = 0.0, beats = pickup))
+            start = pickup
+        }
+        while (start < lastBeat - 1e-9 && out.size < maxMeasures) {
+            out.add(ScoreMeasure(index = out.size, startBeat = start, beats = per))
+            start += per
+        }
+        if (out.isEmpty()) out.add(ScoreMeasure(0, 0.0, per))
+        return out
     }
 
     private fun weightOf(note: FinalNote): Float =

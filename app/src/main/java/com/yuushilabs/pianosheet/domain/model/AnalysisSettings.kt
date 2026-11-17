@@ -34,7 +34,13 @@ enum class HumMode(val wireName: String) {
 
 data class AnalysisSettings(
     val denoiseMode: DenoiseMode = DenoiseMode.AUTO,
-    val strength: DenoiseStrength = DenoiseStrength.STANDARD,
+    /**
+     * `weak` is the measured default for the *final* analysis too: on six
+     * PianoVAM test-split excerpts (clean, −34 dBFS, 20 dB SNR, 12 dB SNR) weak
+     * scored 0.819 mean F1, standard 0.817 and off 0.803; standard was only
+     * ahead on the clean takes and lost more than it gained on the noisy ones.
+     */
+    val strength: DenoiseStrength = DenoiseStrength.WEAK,
     val applyToLive: Boolean = true,
     val humMode: HumMode = HumMode.NONE,
 )

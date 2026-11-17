@@ -17,6 +17,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 | Phase 1: Androidリアルタイム採譜MVP | **実装済み（実機チューニング待ち）** — 下記「Phase 1 の実装範囲」 |
 | Phase 2: 最終解析・完成楽譜・再生・生録音WAV | **実装済み** — 下記「Phase 2 の実装範囲」 |
 | Phase 2.3: MusicXML・MIDI出力 / OSMD楽譜ビューワー | **実装済み** — [docs/phase2-3-export-report.md](docs/phase2-3-export-report.md) |
+| Phase 2.4: PianoVAM 定量評価・採譜/楽譜品質の改善（`0.3.1-phase2`） | **実装済み** — [docs/phase2-4-pianovam-report.md](docs/phase2-4-pianovam-report.md) |
 | Phase 3 以降（編集・Undo/Redo・PDF） | 未着手 |
 
 ### Phase 0 の要点
@@ -45,11 +46,12 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 
 ### Phase 2 の実装範囲
 
-- **採譜候補の物理チェック（`NoteCandidateFilter`）**: 減衰尾の再報告（onset < 0.20）、80ms未満のクリック、C6以上の弱い検出、同時に鳴る強い下の音のオクターブ/12度上の倍音ゴーストを落とす。窓統合後にも `FinalNoteMerger.suppressGhosts()` で同じ検査を行う。詳細は [docs/phase2-1-report.md](docs/phase2-1-report.md)。
-- **最終解析（`domain/final`）**: 保存済みの無加工 WAV を読み直し（`WavFileReader`）、22.05kHz へ統一（`AudioResampler`）→ 設定に応じたノイズ除去（既定 standard＋25Hz ハイパス、ハムは自動判定可）→ Basic Pitch ONNX で全体を 2秒窓・1秒ホップで再解析 → 窓間の重複を統合（`FinalNoteMerger`）。
+- **採譜候補の物理チェック（`NoteCandidateFilter`）**: 減衰尾の再報告（onset < 0.30）、80ms未満のクリック、C6以上の弱い検出、同時に鳴る強い下の音のオクターブ/12度上の倍音ゴーストを落とす。窓統合後にも `FinalNoteMerger.suppressGhosts()` で同じ検査を行う。詳細は [docs/phase2-1-report.md](docs/phase2-1-report.md)。
+- **最終解析（`domain/final`）**: 保存済みの無加工 WAV を読み直し（`WavFileReader`）、22.05kHz へ統一（`AudioResampler`）→ 設定に応じたノイズ除去（既定 weak＋25Hz ハイパス、ハムは自動判定可）→ Basic Pitch ONNX で全体を 2秒窓・1秒ホップで再解析 → 窓間の重複を統合（`FinalNoteMerger`）。復号は onset 0.55 / frame 0.30 / 最小音符長 6 フレーム（Phase 2.4 の実測で決定）。
   - `TempoEstimator`: 発音間隔とグリッド整合度から BPM を推定（倍/半分テンポの曖昧さは 70〜150 BPM を優先して解決）。
-  - `TimeSignatureEstimator`: 拍ごとのアクセント比から 4/4・3/4・2/4・6/8 を推定（6/8 は中間アクセントで 3/4 と区別）。
-  - `KeyEstimator`: Krumhansl–Schmuckler 相関で調性・調号（-7〜+7）を推定。
+  - `TimeSignatureEstimator`: 各拍子候補を**最良の位相**で採点して 4/4・3/4・2/4・6/8 を推定し、下拍の位相（アウフタクト）も返す。アクセントは低音を重く数え、書きやすい拍子（4/4・3/4）を優先。6/8 は中間アクセントで 3/4 と区別。
+  - 小節は推定した下拍位相に置き、最初の下拍より前は**アウフタクト**（短い第1小節、MusicXML では `implicit="yes"`）として書く。
+  - `KeyEstimator`: Krumhansl–Schmuckler 相関で調性・調号（-7〜+7）を推定。7♯/7♭ は臨時記号が減る異名同音（例: 嬰ハ長調 → 変ニ長調）へ寄せる。
   - `RhythmQuantizer`: 16分グリッドへの量子化（強さ 0〜1）と「演奏時刻優先」モードの両対応。付点・全/2分/4分/8分/16分へ整理。
   - `StaffAssigner`: 音域分布の「隙間」で分割点を決め、和音は両手に分け、分割点付近は声部の連続性で左右を決める。
   - `PitchSpeller`: 調号に沿った綴り（F dur の B♭ など）と、小節内で臨時記号を持ち越す処理。
@@ -59,11 +61,12 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 - **再生（`playback`）**: Score は `PianoSynth`（6倍音＋ADSR の加算合成）をオフラインで PCM 化して `AudioTrack` で再生（速度変更は時間軸のみ再レンダリングし音高を保つ）。Original は `MediaPlayer` で無加工 WAV を再生。0.5〜1.5倍速、シーク、楽譜/元音声の切り替え。
 - **MusicXML・MIDI の出力（`domain/export`, `core/export`）**: `MusicXmlExporter`（MusicXML 4.0・2段1パート・和音/タイ/付点/休符/調号/テンポ）と `MidiExporter`（SMF Format 1・テンポ/拍子/調号トラック＋右手/左手トラック、PPQ480）。どちらも SAF 保存と `FileProvider` 共有に対応。詳細は [docs/phase2-3-export-report.md](docs/phase2-3-export-report.md)。
 - **生録音WAVの保存・共有（`core/export`）**: Storage Access Framework（`CreateDocument("audio/wav")`）で任意フォルダへ保存、`FileProvider` 経由の共有シート。`res/xml/file_paths.xml` で公開範囲を `files/recordings` と `cache/exports` に限定。
+- **入力監視（`core/audio/InputMonitor`）**: 100ms ごとの RMS/ピーク（dBFS）、クリップ率、無音継続時間を数え、録音画面に「音が割れています／入力が小さいです／音が届いていません」を出す。解析コピーの音量正規化は PianoVAM で効果が無かった（−34 dBFS でも F1 差 <0.001）ため行わない。
 - **録音開始直後の誤検出対策（`core/dsp/StartupGuard`）**: 解析コピーの先頭 250ms を線形フェードイン＋DC 除去、ゼロ埋め窓の境界に 30ms フェード、開始 250ms 以内は「強い打鍵（onset強度0.70以上かつ信頼度0.45以上）」以外の onset を抑制。ライブ・最終解析の両方に適用（録音 WAV は無加工のまま）。
 - **ライブ譜面のレイアウト修正（`domain/live/LiveStaffLayout`）**: 同時発音は同じX、打鍵間隔は最低 15dp を確保、ト音/ヘ音のヘッダーは左固定で譜面のみ横スクロール、自動追従はアニメーションではなく即時スクロールで最新音を画面の68%位置に置く（260音・3分でも破綻しないことをテスト）。
 - **DB**: Room v3（`scores` テーブル追加）。`MIGRATION_1_2` / `MIGRATION_2_3` を実装し、`fallbackToDestructiveMigration` を廃止。Phase 1 の録音・暫定音符はそのまま残る。
 - **暫定音符一覧の並び順**: `onsetMs` 昇順 → `midiPitch` 昇順（5.17 の後に 5.08 が出る問題を修正）。
-- **テスト**: 121件（起動ガード、ライブ譜面レイアウト、テンポ/拍子/調性推定、量子化・小節・休符・左右振り分け・臨時記号、スコアのエンコード往復、ピアノシンセの波形/音高、リサンプラ、WAV 読み書き、最終解析の通し、マイグレーション）。
+- **テスト**: 192件（うち PianoVAM ベンチ1件は環境変数 `PIANOSHEET_PIANOVAM_DIR` 指定時のみ）（起動ガード、ライブ譜面レイアウト、テンポ/拍子/調性推定、量子化・小節・休符・左右振り分け・臨時記号、スコアのエンコード往復、ピアノシンセの波形/音高、リサンプラ、WAV 読み書き、最終解析の通し、マイグレーション）。
 
 ### 使い方（Phase 2）
 

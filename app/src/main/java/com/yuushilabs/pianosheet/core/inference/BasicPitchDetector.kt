@@ -14,7 +14,7 @@ import kotlin.math.min
  */
 class BasicPitchDetector(
     private val model: BasicPitchModel,
-    private val onsetThreshold: Float = BasicPitchConstants.DEFAULT_ONSET_THRESHOLD,
+    private val onsetThreshold: Float = BasicPitchConstants.FINAL_ONSET_THRESHOLD,
     private val frameThreshold: Float = BasicPitchConstants.DEFAULT_FRAME_THRESHOLD,
     private val minNoteLength: Int = BasicPitchConstants.DEFAULT_MIN_NOTE_LENGTH_FRAMES,
     private val filterSettings: NoteCandidateFilter.Settings = NoteCandidateFilter.Settings(),

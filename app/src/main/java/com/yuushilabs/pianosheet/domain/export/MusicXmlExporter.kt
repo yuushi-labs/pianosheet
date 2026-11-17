@@ -164,7 +164,12 @@ object MusicXmlExporter {
             val startTick = measureStart[index]
             val endTick = measureEnd[index]
             val ticks = max(1, endTick - startTick)
-            out.append("    <measure number=\"").append(index + 1).append("\">\n")
+            // A first measure shorter than the bar is a pickup (anacrusis): MusicXML
+            // wants it marked so readers do not count a missing beat as an error.
+            val pickup = index == 0 && measures.size > 1 && measures[0].beats < score.timeSignature.beatsPerMeasure - 1e-6
+            out.append("    <measure number=\"").append(index + 1).append("\"")
+            if (pickup) out.append(" implicit=\"yes\"")
+            out.append(">\n")
             if (index == 0) {
                 appendAttributes(out, score, divisions)
                 if (options.includeTempo) appendTempo(out, score)

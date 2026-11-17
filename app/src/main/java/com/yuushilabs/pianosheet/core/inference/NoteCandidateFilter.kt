@@ -29,7 +29,7 @@ import kotlin.math.abs
 object NoteCandidateFilter {
 
     data class Settings(
-        val minOnsetStrength: Float = 0.20f,
+        val minOnsetStrength: Float = 0.30f,
         val minDurationS: Double = 0.08,
         val highPitchMidi: Int = 84,
         val highPitchMinOnset: Float = 0.40f,

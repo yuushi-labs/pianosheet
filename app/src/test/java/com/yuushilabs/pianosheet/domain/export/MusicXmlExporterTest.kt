@@ -346,4 +346,39 @@ class MusicXmlExporterTest {
         assertEquals(divisions.toString(), root.child("part")!!.child("measure")!!
             .child("attributes")!!.text("divisions"))
     }
+
+    @Test
+    fun `a pickup measure is short and marked implicit`() {
+        // 1.5 beats of pickup, then full 4/4 bars: what the bar-phase estimate
+        // produces for a performance that starts mid-bar.
+        val measures = listOf(
+            ScoreMeasure(0, 0.0, 1.5),
+            ScoreMeasure(1, 1.5, 4.0),
+            ScoreMeasure(2, 5.5, 4.0),
+        )
+        val notes = listOf(
+            note("n1", 60, 0.0, 1.0, Staff.TREBLE, measureIndex = 0),
+            note("n2", 62, 1.0, 0.5, Staff.TREBLE, measureIndex = 0),
+            note("n3", 48, 1.5, 4.0, Staff.BASS, measureIndex = 1),
+            note("n4", 64, 1.5, 2.0, Staff.TREBLE, measureIndex = 1),
+            note("n5", 48, 5.5, 4.0, Staff.BASS, measureIndex = 2),
+            note("n6", 67, 5.5, 2.0, Staff.TREBLE, measureIndex = 2),
+        )
+        val score = scoreOf(notes, timeSignature = TimeSignature.COMMON).copy(measures = measures)
+        val root = parse(MusicXmlExporter.toMusicXml(score))
+        val measuresOut = root.child("part")!!.children("measure")
+        assertEquals(3, measuresOut.size)
+        assertEquals("yes", measuresOut[0].getAttribute("implicit"))
+        assertEquals("", measuresOut[1].getAttribute("implicit"))
+
+        val divisions = MusicXmlExporter.divisionsFor(score, MusicXmlExporter.Options())
+        for ((index, measure) in measuresOut.withIndex()) {
+            val expected = (measures[index].beats * divisions).roundToInt()
+            val staff1 = measure.children("note")
+                .filter { it.child("chord") == null }
+                .filter { it.text("staff") == "1" }
+                .sumOf { it.text("duration")!!.toInt() }
+            assertEquals("measure ${index + 1} staff 1", expected, staff1)
+        }
+    }
 }

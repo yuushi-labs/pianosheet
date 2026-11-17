@@ -12,8 +12,8 @@ android {
         applicationId = "com.yuushilabs.pianosheet"
         minSdk = 29
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.3.0-phase2"
+        versionCode = 6
+        versionName = "0.3.1-phase2"
         vectorDrawables {
             useSupportLibrary = true
         }
