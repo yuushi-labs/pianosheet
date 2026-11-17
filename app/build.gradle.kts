@@ -61,6 +61,14 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // The exports are also written to stdout: CI keeps the generated
+        // MusicXML/MIDI bytes next to the test result so an outside reader can
+        // be pointed at exactly what the app produced.
+        unitTests.all {
+            it.testLogging {
+                showStandardStreams = true
+            }
+        }
     }
 }
 
