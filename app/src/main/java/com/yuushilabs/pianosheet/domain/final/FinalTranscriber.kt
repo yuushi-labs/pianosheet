@@ -7,6 +7,7 @@ import com.yuushilabs.pianosheet.core.dsp.DenoiseStrength
 import com.yuushilabs.pianosheet.core.dsp.Denoiser
 import com.yuushilabs.pianosheet.core.dsp.MainsHumDetector
 import com.yuushilabs.pianosheet.core.dsp.StartupGuard
+import com.yuushilabs.pianosheet.core.inference.HarmonicRealnessFilter
 import com.yuushilabs.pianosheet.domain.live.ChunkDetector
 import com.yuushilabs.pianosheet.domain.live.Detection
 import com.yuushilabs.pianosheet.domain.model.NoteEvent
@@ -61,6 +62,10 @@ data class FinalTranscription(
     val overtoneSuppressed: Int = 0,
     /** Candidates removed because they lasted less than 80 ms. */
     val shortSuppressed: Int = 0,
+    /** High notes removed as pure lines of a lower note's 8th partial (v1.4). */
+    val harmonicSuppressed: Int = 0,
+    /** Notes at or above C5 the harmonic check looked at. */
+    val harmonicExamined: Int = 0,
     val analysisMs: Long,
     val audioDurationSec: Double,
     val sampleRate: Int,
@@ -176,7 +181,17 @@ class FinalTranscriber(
 
         onProgress(FinalProgress(FinalStage.FINISHING, 0.88, "楽譜を仕上げています"))
         val mergedResult = FinalNoteMerger.mergeDetailed(results, toleranceMs = options.mergeToleranceMs)
-        val merged = mergedResult.notes
+        // v1.4: a high note that carries none of its own 2nd/3rd partial is one
+        // spectral line of a lower note's 8th partial, not a key.  The check reads
+        // the untouched take (not the denoised copy the model heard), because the
+        // denoiser's noise subtraction can hollow out exactly the partials it looks
+        // for; the clock is the same, so onsets still line up.
+        val harmonic = HarmonicRealnessFilter.apply(
+            notes = mergedResult.notes,
+            audio = resampled,
+            settings = HarmonicRealnessFilter.Settings(sampleRate = targetSampleRate),
+        )
+        val merged = harmonic.kept
         val correlation = correlate(merged, liveEvents)
         val audioDurationSec = prepared.size.toDouble() / targetSampleRate
 
@@ -214,6 +229,8 @@ class FinalTranscriber(
             startupSuppressed = suppressed,
             overtoneSuppressed = mergedResult.overtoneDropped,
             shortSuppressed = mergedResult.shortDropped,
+            harmonicSuppressed = harmonic.dropped.size,
+            harmonicExamined = harmonic.examined,
             analysisMs = (System.nanoTime() - startedAt) / 1_000_000L,
             audioDurationSec = audioDurationSec,
             sampleRate = targetSampleRate,

@@ -61,7 +61,11 @@ fun CompletedScoreCanvas(
     val palette = rememberScorePalette()
     val lineGap = with(density) { 9f.dp.toPx() }
     val halfGap = lineGap / 2f
-    val headerWidth = with(density) { 62f.dp.toPx() }
+    // The staff header (clef, key signature, time signature) is measured from the
+    // key signature: with seven sharps it needs half a centimetre more room than an
+    // empty one, and a fixed width is what used to push the 6/8 into the sharps.
+    val keyFifths = score.keySignature.fifths
+    val headerWidth = StaffHeader.widthPx(lineGap, keyFifths)
     val systemTopPad = with(density) { 16f.dp.toPx() }
     val staffHeight = 4 * lineGap
     val staffGap = 5.6f * lineGap
@@ -73,7 +77,7 @@ fun CompletedScoreCanvas(
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val widthPx = with(density) { maxWidth.toPx() }
         val horizontalPad = with(density) { 10f.dp.toPx() }
-        val metrics = remember(widthPx, lineGap) {
+        val metrics = remember(widthPx, lineGap, keyFifths) {
             LayoutMetrics(
                 systemWidth = max(120f, widthPx - headerWidth - horizontalPad * 2),
                 minMeasureWidth = with(density) { 84f.dp.toPx() },
@@ -178,16 +182,17 @@ fun CompletedScoreCanvas(
                     drawPath(brace, color = staff, style = Stroke(width = thickStroke))
 
                     // Clefs.
+                    val clefX = left + StaffHeader.CLEF_CENTRE * lineGap
                     drawText(
                         "\uD834\uDD1E",
-                        left + 22f,
+                        clefX,
                         lineY(trebleTop, 1) + lineGap * 1.25f,
                         4.4f * lineGap,
                         textPaint,
                     )
                     drawText(
                         "\uD834\uDD22",
-                        left + 22f,
+                        clefX,
                         lineY(bassTop, 1) + lineGap * 0.95f,
                         4.4f * lineGap,
                         textPaint,
@@ -196,7 +201,7 @@ fun CompletedScoreCanvas(
                     // Key signature.
                     drawKeySignature(
                         key = score.keySignature,
-                        x = left + 36f,
+                        x = left + StaffHeader.KEY_START * lineGap,
                         trebleTop = trebleTop,
                         bassTop = bassTop,
                         lineGap = lineGap,
@@ -207,7 +212,7 @@ fun CompletedScoreCanvas(
                     // Time signature.
                     drawTimeSignature(
                         timeSignature = score.timeSignature,
-                        x = left + headerWidth - 8f,
+                        x = left + StaffHeader.timeSignatureCentre(lineGap, keyFifths),
                         trebleTop = trebleTop,
                         bassTop = bassTop,
                         lineGap = lineGap,
@@ -311,6 +316,35 @@ fun CompletedScoreCanvas(
     }
 }
 
+private object StaffHeader {
+    /** Clef centre, in staff spaces (one space = one line gap). */
+    const val CLEF_CENTRE = 1.22f
+    const val CLEF_HALF_WIDTH = 2.2f
+    /** Centre of the first accidental, clear of the clef's right edge. */
+    const val KEY_START = 2.6f
+    const val ACCIDENTAL_ADVANCE = 0.78f
+    /** Half the width of one accidental; a flat reaches further right than a sharp. */
+    const val ACCIDENTAL_HALF_WIDTH = 0.58f
+    const val KEY_TO_TIME_GAP = 0.55f
+    /** Half the width of the time signature (two digits). */
+    const val TIME_HALF_WIDTH = 1.35f
+    const val RIGHT_PAD = 0.35f
+
+    /** Where the key signature ends, in px. */
+    fun keySignatureEnd(lineGap: Float, fifths: Int): Float {
+        val count = kotlin.math.abs(fifths)
+        if (count == 0) return (CLEF_CENTRE + CLEF_HALF_WIDTH) * lineGap
+        return (KEY_START + (count - 1) * ACCIDENTAL_ADVANCE + ACCIDENTAL_HALF_WIDTH) * lineGap
+    }
+
+    fun timeSignatureCentre(lineGap: Float, fifths: Int): Float =
+        keySignatureEnd(lineGap, fifths) + (KEY_TO_TIME_GAP + TIME_HALF_WIDTH) * lineGap
+
+    /** Width of the whole header for this key, so no accidental can reach the 6/8. */
+    fun widthPx(lineGap: Float, fifths: Int): Float =
+        timeSignatureCentre(lineGap, fifths) + (TIME_HALF_WIDTH + RIGHT_PAD) * lineGap
+}
+
 private fun DrawScope.drawKeySignature(
     key: KeySignature,
     x: Float,
@@ -328,7 +362,9 @@ private fun DrawScope.drawKeySignature(
     val inkColor = color
     val stroke = lineGap * 0.11f
     for (index in 0 until count) {
-        val offset = index * lineGap * 0.78f
+        // Spacing and glyph width are shared with [StaffHeader], so the header width
+        // always covers every accidental.
+        val offset = index * StaffHeader.ACCIDENTAL_ADVANCE * lineGap
         val trebleY = trebleTop + 4 * lineGap - trebleSteps[index] * halfGap
         val bassY = bassTop + 4 * lineGap - bassSteps[index] * halfGap
         drawAccidental(
