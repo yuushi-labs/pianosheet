@@ -227,7 +227,7 @@ class MusicXmlExporterTest {
             ),
         )
         val notes = parse(xml(score)).child("part")!!.child("measure")!!
-            .children("note").filter { it.text("staff") == "1" }
+            .children("note").filter { it.text("staff") == "1" && it.child("pitch") != null }
         assertEquals(3, notes.size)
         // Exactly one notehead carries the attack, the other two are <chord/> members.
         assertEquals(1, notes.filter { it.child("chord") == null }.size)

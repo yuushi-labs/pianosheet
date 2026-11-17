@@ -351,6 +351,7 @@ object MusicXmlExporter {
         val candidates = listOf(
             whole,
             3 * whole / 2,
+            3 * divisions,
             2 * divisions,
             3 * divisions / 2,
             divisions,

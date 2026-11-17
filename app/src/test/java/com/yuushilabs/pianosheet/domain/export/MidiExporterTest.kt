@@ -106,7 +106,7 @@ class MidiExporterTest {
     }
 
     private fun parseTracks(bytes: ByteArray): List<ParsedTrack> {
-        var index = 0
+        var index: Int
         assertTrue("MThd", String(bytes, 0, 4, Charsets.US_ASCII) == "MThd")
         assertEquals(6, readInt32(bytes, 4))
         index = 8 + readInt32(bytes, 4)
@@ -263,8 +263,9 @@ class MidiExporterTest {
         )
         val track = parseTracks(MidiExporter.toBytes(score))[1]
         val velocity = track.noteOns.first().data[1]
+        // 0.02 (the floor) * 127 = 2.54, rounded to 3: audible, never zero.
         assertTrue("velocity $velocity", velocity in 1..127)
-        assertEquals(1, velocity)
+        assertEquals(3, velocity)
     }
 
     @Test
