@@ -41,9 +41,9 @@
 
 - ユニットテスト（JVM）:
   - `MusicXmlExporterTest`（12件）: XMLとして再パース、ヘッダ（staves=2・G/Fクレフ・調号・拍子・テンポ）、**全小節で staff 1/2 の duration 合計＝拍子×divisions**、和音 `<chord/>`、小節をまたぐタイ、休符での穴埋め、付点、臨時記号・オクターブ、XMLエスケープ、空スコア、グリッド丸め。
-  - `MidiExporterTest`（7件）: `MThd`/`MTrk` の長さ整合、format 1・3トラック・PPQ、テンポ/拍子/調号メタイベント、NoteOn/NoteOff の対応とチャンネル、同音連打の切り詰め、ベロシティ範囲、デルタ時間が非負。
+  - `MidiExporterTest`（6件）: `MThd`/`MTrk` の長さ整合、format 1・3トラック・PPQ、テンポ/拍子/調号メタイベント、NoteOn/NoteOff の対応とチャンネル、同音連打の切り詰め、ベロシティ範囲、デルタ時間が非負。
   - `ExportRealTakeTest`（3件）: 実録音 fixture（Für Elise / Gymnopédie / 本人のテイク）を解析→出力し、XML再パース＋小節のduration合計、MIDIのヘッダとサイズを検証。
-- CI: `Android CI` で全 **177テスト**が合格し、Debug APK をビルド（run は §7）。
+- CI: `Android CI` で全 **175テスト**（`domain.export` 21件）が合格し、Debug APK をビルド（run は §7）。
 - **外部リーダーでの確認**（Python 3.12 + music21 10.5.2）: 本人テイクから生成した MusicXML（11小節・223符頭・63和音・タイ10組）を `music21.converter.parse()` で読み、2パート・11小節・C# major・4/4・♩=102 として解釈され、小節長の誤差0、music21 から MIDI へ再出力できることを確認。
 - **OSMD での実描画確認**: OSMD 公式デモ（2.3.1）に `docs/samples/sample.musicxml` を読み込ませ、大譜表・調号2♯・和音・タイ・休符・終止線が正しく描かれること、ダークモードで白インクに切り替わることを目視確認。
 - **ビューワーJSの動作確認**: `viewer.js` をダミーDOM＋ダミーOSMD上で実行し、テーマ切替・描画通知・小節帯/プレイヘッドの座標・自動スクロール（follow時のみ）・clearPosition・ズーム・status の15項目を確認。

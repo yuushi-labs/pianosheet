@@ -77,9 +77,11 @@ class ScoreFileExporter(private val context: Context) {
 
     private fun writeFile(name: String, bytes: ByteArray): File {
         val directory = File(context.cacheDir, "exports").apply { mkdirs() }
-        // Old exports in the cache are only ever shared once; drop the previous
-        // copies so the share sheet never hands out a stale score.
-        directory.listFiles()?.forEach { old -> if (old.isFile) old.delete() }
+        // Old exports in the cache are only ever shared once; drop stale copies,
+        // but leave anything recent alone: a share sheet that is still open must
+        // find the file it was handed.
+        val cutoff = System.currentTimeMillis() - STALE_AFTER_MS
+        directory.listFiles()?.forEach { old -> if (old.isFile && old.lastModified() < cutoff) old.delete() }
         val file = File(directory, name)
         file.writeBytes(bytes)
         return file
@@ -100,6 +102,7 @@ class ScoreFileExporter(private val context: Context) {
 
     companion object {
         private const val TAG = "ScoreFileExporter"
+        private const val STALE_AFTER_MS = 10 * 60 * 1000L
         const val WAV_MIME_TYPE = "audio/wav"
     }
 }
