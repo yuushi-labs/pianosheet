@@ -274,28 +274,28 @@ FP の大半は低音域の部分音（5 度上・オクターブ下）で、**�
 
 ## 9. 再現手順
 
+測定コードはリポジトリの [`tools/pianovam-bench/`](../tools/pianovam-bench/README.md) にあり、
+データは `PIANOVAM_ROOT` の下（リポジトリには音源を置かない: CC BY-NC 4.0）。
+
 ```bash
-# 1. PianoVAM（Audio/MIDI/TSV のみ・約 220 MB）
-cd work/pianovam && python3 fetch.py
+pip install numpy scipy onnxruntime librosa music21 soundfile
+export PIANOVAM_ROOT=$HOME/pianovam
+cd tools/pianovam-bench
 
-# 2. 40 秒抜粋と正解 JSON
-cd bench && python3 -c "import pvlib; pvlib.prepare_excerpts()"
+python3 fetch.py                                   # 6曲の Audio/MIDI/TSV（約220MB）
+python3 -c "import pvlib; pvlib.prepare_excerpts()" # 40秒抜粋＋正解JSON
+python3 run_bench.py baseline                      # 変更前のベースライン（Python 移植）
+python3 ablate.py                                  # パラメータのアブレーション
+python3 fixtures_eval.py                           # 合成フィクスチャ19本
+python3 audio_lab.py                               # ノイズ除去強度・音量
+python3 chord_complete.py                          # 和音補完（不採用）
 
-# 3. 変更前のベースライン（Python 移植・Kotlin と一致確認済み）
-python3 run_bench.py baseline
-
-# 4. パラメータのアブレーション
-python3 ablate.py
-python3 fixtures_eval.py
-python3 audio_lab.py          # ノイズ除去強度・音量
-python3 chord_complete.py     # 和音補完（不採用）
-
-# 5. 変更後の数値（アプリの Kotlin を実行）
 python3 export_kotlin.py && python3 export_fixtures.py
-cd /workspace/pianosheet
-PIANOSHEET_PIANOVAM_DIR=/workspace/work/pianovam/replay \
+cd ../..                                           # リポジトリ直下
+PIANOSHEET_PIANOVAM_DIR=$PIANOVAM_ROOT/replay \
   ./gradlew :app:testDebugUnitTest --tests '*PianoVamBenchmarkTest*'
-cd /workspace/work/pianovam/bench && python3 replay_metrics.py
+cd tools/pianovam-bench && python3 replay_metrics.py
 ```
 
-生成物: `results/baseline.json`（変更前）、`results/v15-kotlin.json`（変更後）、`replay/pv*.kotlin.json` と `replay/pv*.musicxml`（完成譜）。
+生成物: `$PIANOVAM_ROOT/results/baseline.json`（変更前）、`results/v15-kotlin.json`（変更後）、
+`replay/pv*.kotlin.json` と `replay/pv*.musicxml`（完成譜）。

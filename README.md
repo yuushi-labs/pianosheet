@@ -6,6 +6,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 
 - 仕様書: [docs/PianoSheet_仕様書_v1.3.md](docs/PianoSheet_仕様書_v1.3.md)（v1.2 は [docs/PianoSheet_仕様書_v1.2.md](docs/PianoSheet_仕様書_v1.2.md)）
 - Phase 0 技術検証レポート: [docs/phase0-report.md](docs/phase0-report.md)
+- PianoVAM 定量評価（Phase 2.4）: [docs/phase2-4-pianovam-report.md](docs/phase2-4-pianovam-report.md) / 測定コード [tools/pianovam-bench](tools/pianovam-bench/README.md)
 - 共通ノートイベント仕様: [shared-specs/note-event.schema.json](shared-specs/note-event.schema.json)
 - サードパーティ・ライセンス: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
