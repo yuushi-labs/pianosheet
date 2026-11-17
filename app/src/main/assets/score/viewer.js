@@ -78,6 +78,10 @@
             drawMeasureNumbers: true,
             drawTimeSignatures: true,
             drawingParameters: 'compacttight',
+            // Beam eighths and sixteenths the way a reader expects; the export
+            // does not write <beam> elements, so the renderer groups them.
+            autoBeam: true,
+            autoBeamOptions: { beam_multi_note_groups: true, beam_rests: false },
             disableCursor: true,
             followCursor: false,
             defaultColorMusic: theme.music,
