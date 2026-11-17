@@ -27,6 +27,8 @@ import kotlin.math.roundToInt
  */
 class ExportRealTakeTest {
 
+    private val EXPORT_OPTIONS = MusicXmlExporter.Options(encodingDate = "2026-11-17")
+
     private fun analyse(name: String): Score {
         val stream = javaClass.classLoader!!.getResourceAsStream("real-takes/$name.csv")
             ?: error("missing fixture real-takes/$name.csv")
@@ -90,7 +92,7 @@ class ExportRealTakeTest {
 
     /** Every measure must hold exactly the meter, in both staves. */
     private fun assertMeasureArithmetic(score: Score, root: Element) {
-        val divisions = MusicXmlExporter.divisionsFor(score)
+        val divisions = MusicXmlExporter.divisionsFor(score, EXPORT_OPTIONS)
         val measureTicks = (score.timeSignature.beatsPerMeasure * divisions).roundToInt()
         val measures = root.child("part")!!.children("measure")
         assertEquals(score.measures.size, measures.size)
@@ -110,7 +112,7 @@ class ExportRealTakeTest {
     fun `every real take exports to legal musicxml`() {
         for (name in listOf("fur-elise", "gymnopedie", "user-take")) {
             val score = analyse(name)
-            val xml = MusicXmlExporter.toMusicXml(score, MusicXmlExporter.Options(encodingDate = "2026-11-17"))
+            val xml = MusicXmlExporter.toMusicXml(score, EXPORT_OPTIONS)
             val root = parse(xml)
             assertEquals("score-partwise", root.tagName)
             assertMeasureArithmetic(score, root)
@@ -139,7 +141,7 @@ class ExportRealTakeTest {
     @Test
     fun `the users take prints its musicxml for outside readers`() {
         val score = analyse("user-take")
-        val xml = MusicXmlExporter.toMusicXml(score, MusicXmlExporter.Options(encodingDate = "2026-11-17"))
+        val xml = MusicXmlExporter.toMusicXml(score, EXPORT_OPTIONS)
         assertMeasureArithmetic(score, parse(xml))
         println("MUSICXML-BEGIN user-take")
         print(xml)

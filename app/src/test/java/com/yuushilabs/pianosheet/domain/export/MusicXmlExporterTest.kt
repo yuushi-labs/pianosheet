@@ -320,11 +320,29 @@ class MusicXmlExporterTest {
     }
 
     @Test
-    fun `performance time values force a finer division`() {
+    fun `the exported grid makes every duration a writable value`() {
+        // Performance timing (0.3333 beats) has no note value; the page snaps it
+        // to the sixteenth grid so `<duration>` and `<type>` always agree.
         val score = scoreOf(listOf(note("a", 60, 0.0, 0.3333, Staff.TREBLE)))
-        val divisions = MusicXmlExporter.divisionsFor(score)
-        assertTrue("divisions $divisions", divisions >= 8)
         val root = parse(xml(score))
+        assertEquals("4", root.child("part")!!.child("measure")!!
+            .child("attributes")!!.text("divisions"))
+        val durations = root.getElementsByTagName("note").let { nodes ->
+            (0 until nodes.length).mapNotNull { index ->
+                val element = nodes.item(index) as? Element ?: return@mapNotNull null
+                element.text("duration")?.toInt()
+            }
+        }
+        assertTrue("durations $durations", durations.all { it in setOf(1, 2, 3, 4, 6, 8, 12, 16) })
+    }
+
+    @Test
+    fun `without a grid the performance timing forces a finer division`() {
+        val score = scoreOf(listOf(note("a", 60, 0.0, 0.3333, Staff.TREBLE)))
+        val options = MusicXmlExporter.Options(gridBeats = 0.0)
+        val divisions = MusicXmlExporter.divisionsFor(score, options)
+        assertTrue("divisions $divisions", divisions >= 8)
+        val root = parse(MusicXmlExporter.toMusicXml(score, options))
         assertEquals(divisions.toString(), root.child("part")!!.child("measure")!!
             .child("attributes")!!.text("divisions"))
     }

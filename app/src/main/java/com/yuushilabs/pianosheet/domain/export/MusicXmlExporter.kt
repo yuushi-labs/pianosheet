@@ -46,12 +46,19 @@ object MusicXmlExporter {
         /** Fixed value for `<encoding-date>`; null means "today". */
         val encodingDate: String? = null,
         val partName: String = "Piano",
+        /**
+         * The notation grid, in quarter-note beats (0.25 = sixteenth).  Starts and
+         * durations are snapped to it so every `<duration>` is exactly one
+         * writable note value; 0 exports the performance timing untouched.
+         */
+        val gridBeats: Double = 0.25,
     )
 
     // ---------------------------------------------------------------- public
 
     fun toMusicXml(score: Score, options: Options = Options()): String {
-        val divisions = divisionsFor(score, options.baseDivisions)
+        val notes = snapNotes(score.notes, options.gridBeats)
+        val divisions = divisionsFor(score, notes, options.baseDivisions)
         val measures = measuresOf(score)
         val out = StringBuilder(8192)
         out.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
@@ -65,17 +72,38 @@ object MusicXmlExporter {
         appendIdentification(out, options)
         appendPartList(out, options)
         out.append("  <part id=\"P1\">\n")
-        appendMeasures(out, score, measures, divisions, options)
+        appendMeasures(out, score, notes, measures, divisions, options)
         out.append("  </part>\n")
         out.append("</score-partwise>\n")
         return out.toString()
     }
 
     /** Smallest ticks-per-quarter that keeps every beat position integral. */
-    fun divisionsFor(score: Score, base: Int = 4): Int {
+    fun divisionsFor(score: Score, options: Options = Options()): Int =
+        divisionsFor(score, snapNotes(score.notes, options.gridBeats), options.baseDivisions)
+
+    private fun divisionsFor(score: Score, notes: List<ScoreNote>, base: Int): Int {
         var divisions = max(1, base)
-        while (divisions < 64 && !isExact(score, divisions)) divisions *= 2
+        while (divisions < 64 && !isExact(score, notes, divisions)) divisions *= 2
         return divisions
+    }
+
+    /**
+     * Snaps every attack and length onto the notation grid.  The score keeps the
+     * performance timing next to the notated value on purpose (spec §5.3); the
+     * printed page only has room for the notated one.
+     */
+    fun snapNotes(notes: List<ScoreNote>, grid: Double): List<ScoreNote> {
+        if (grid <= 0.0) return notes
+        return notes.map { note ->
+            val start = (note.startBeat / grid).roundToInt() * grid
+            val length = ((note.durationBeats / grid).roundToInt().coerceAtLeast(1)) * grid
+            if (abs(start - note.startBeat) < 1e-9 && abs(length - note.durationBeats) < 1e-9) {
+                note
+            } else {
+                note.copy(startBeat = start, durationBeats = length)
+            }
+        }
     }
 
     // --------------------------------------------------------------- header
@@ -120,14 +148,15 @@ object MusicXmlExporter {
     private fun appendMeasures(
         out: StringBuilder,
         score: Score,
+        notes: List<ScoreNote>,
         measures: List<ScoreMeasure>,
         divisions: Int,
         options: Options,
     ) {
         val measureStart = measures.map { beatToTick(it.startBeat, divisions) }
         val measureEnd = measures.map { beatToTick(it.endBeat, divisions) }
-        val right = segmentsFor(score.notes.filter { it.staff == Staff.TREBLE }, measureStart, measureEnd, divisions)
-        val left = segmentsFor(score.notes.filter { it.staff == Staff.BASS }, measureStart, measureEnd, divisions)
+        val right = segmentsFor(notes.filter { it.staff == Staff.TREBLE }, measureStart, measureEnd, divisions)
+        val left = segmentsFor(notes.filter { it.staff == Staff.BASS }, measureStart, measureEnd, divisions)
         val rightByMeasure = right.groupBy { it.measure }
         val leftByMeasure = left.groupBy { it.measure }
 
@@ -442,12 +471,12 @@ object MusicXmlExporter {
 
     fun beatToTick(beat: Double, divisions: Int): Int = (beat * divisions).roundToInt()
 
-    private fun isExact(score: Score, divisions: Int): Boolean {
+    private fun isExact(score: Score, notes: List<ScoreNote>, divisions: Int): Boolean {
         fun exact(value: Double): Boolean {
             val scaled = value * divisions
             return abs(scaled - scaled.roundToInt()) < 1e-6 * max(1.0, abs(scaled))
         }
-        return score.notes.all { exact(it.startBeat) && exact(it.durationBeats) } &&
+        return notes.all { exact(it.startBeat) && exact(it.durationBeats) } &&
             score.measures.all { exact(it.startBeat) && exact(it.beats) }
     }
 
