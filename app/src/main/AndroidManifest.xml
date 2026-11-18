@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 0.4.5: the update check reads the latest GitHub release and its APK. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 0.4.5: "install unknown apps" for this app, asked at update time. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <uses-feature
         android:name="android.hardware.microphone"
@@ -25,7 +29,8 @@
             </intent-filter>
         </activity>
 
-        <!-- Shares the raw WAV (files/recordings) without exposing app storage. -->
+        <!-- Shares the raw WAV (files/recordings) and the downloaded update APK
+             (cache/updates) without exposing app storage. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

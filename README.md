@@ -24,6 +24,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 | Phase 3.1: 録音・書き出しの共有フォルダ保存と再インポート（`0.4.1-phase2`） | **実装済み** — [docs/shared-storage-report.md](docs/shared-storage-report.md) |
 | Phase 3.2: 楽譜の先頭の無音除去と弱起/裏拍対応（`0.4.3-phase2`） | **実装済み** — [docs/score-start-report.md](docs/score-start-report.md) |
 | Phase 3.3: ノイズ除去のマイルド化と高音ノイズ対策（`0.4.4-phase2`） | **実装済み** — [docs/denoise-0.4.4-report.md](docs/denoise-0.4.4-report.md) |
+| Phase 3.4: アプリ内自動アップデートと Release 自動公開（`0.4.5-phase2`） | **実装済み** — [docs/auto-update-0.4.5-report.md](docs/auto-update-0.4.5-report.md) |
 | Phase 4 以降（編集・Undo/Redo・PDF） | 未着手 |
 
 ### Phase 0 の要点
@@ -48,7 +49,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
   - SCR-007 設定: ノイズ除去（自動/オン/オフ）、強さ（弱/標準/強）、ライブ適用、電源ハム除去（自動/50/60/なし）。
   - SCR-003/004 最小受け皿: 保存した録音と暫定音符の一覧（最終解析はPhase 2）。
 - **テスト**: DSP（バイクアッド応答・FFT・スペクトル減算・ストリーミング遅延・リサンプラ）、重複排除、Basic Pitch復号、MIDI→五線譜位置のユニットテスト。
-- **CI**: GitHub Actions（`.github/workflows/android.yml`）で `testDebugUnitTest` と `assembleDebug` を実行し、Debug APK とテストレポートを Artifact にアップロード。
+- **CI**: GitHub Actions（`.github/workflows/android.yml`）で `testDebugUnitTest` と `assembleDebug` を実行し、Debug APK とテストレポートを Artifact にアップロード。`main` への push ではビルド後に `v<versionName>` の GitHub Release を作り、APK を添付する（0.4.5〜）。
 
 ### Phase 2 の実装範囲
 
@@ -157,6 +158,17 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
   `HarmonicRealnessFilter.PTI` が **C5 以上**で、しかも**下の帯域のエネルギーから**
   判定して落とす。40 s の録音で C6 以上のノートが 85 → 41。
 - 詳細と検証: [docs/denoise-0.4.4-report.md](docs/denoise-0.4.4-report.md)
+
+### アプリ内アップデート（`0.4.5-phase2`）
+
+- 起動時に `releases/latest` を1回だけ静かに確認し、新しい版があればホームにカードと
+  更新内容つきダイアログ（今すぐ更新 / 後で）を出す。失敗しても何も出さない。
+- ダウンロードは `cache/updates/` に保存し、進捗（%・MB）とキャンセル付き。完了時に
+  サイズと ZIP ヘッダを確認してから、`FileProvider` 経由でシステムインストーラーに渡す。
+  初回は「この提供元のアプリを許可」を案内し、戻ったらそのままインストールへ進む。
+- **設定 → アプリ**に現在のバージョンと「アップデートを確認」ボタン（手動確認・即更新）。
+- `main` へ push すると CI が `v<versionName>` の Release を自動作成するので、次の版からは
+  push だけで端末に更新が届く。詳細: [docs/auto-update-0.4.5-report.md](docs/auto-update-0.4.5-report.md)
 
 ### Phase 2 の既知の制限
 

@@ -21,6 +21,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val container = (application as PianoSheetApplication).container
 
+    /** Shared with the settings screen: one check/download at a time (0.4.5). */
+    val updateController = container.updateController
+
     val projects: StateFlow<List<ProjectSummary>> = container.projectRepository
         .observeProjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

@@ -8,4 +8,8 @@
     <cache-path
         name="exports"
         path="exports/" />
+    <!-- The downloaded update APK, handed to the system installer (0.4.5) -->
+    <cache-path
+        name="updates"
+        path="updates/" />
 </paths>

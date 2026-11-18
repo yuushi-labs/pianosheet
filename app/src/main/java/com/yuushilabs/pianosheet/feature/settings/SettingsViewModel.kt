@@ -17,6 +17,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val container = (application as PianoSheetApplication).container
 
+    /** Shared with home: one check/download at a time (0.4.5). */
+    val updateController = container.updateController
+
     val settings: StateFlow<AnalysisSettings> = container.settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalysisSettings())
 

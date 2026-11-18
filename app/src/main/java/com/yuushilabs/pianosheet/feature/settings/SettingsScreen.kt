@@ -33,6 +33,8 @@ import com.yuushilabs.pianosheet.core.dsp.DenoiseStrength
 import com.yuushilabs.pianosheet.domain.model.AnalysisSettings
 import com.yuushilabs.pianosheet.domain.model.DenoiseMode
 import com.yuushilabs.pianosheet.domain.model.HumMode
+import com.yuushilabs.pianosheet.feature.update.UpdateHost
+import com.yuushilabs.pianosheet.feature.update.UpdateStyle
 
 /** SCR-007: the "録音・解析" section of the settings (spec §3.7, §20.4). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,6 +139,15 @@ fun SettingsScreen(
                 RadioRow("50 Hz", hum == HumMode.HZ50) { viewModel.setHumMode(HumMode.HZ50) }
                 RadioRow("60 Hz", hum == HumMode.HZ60) { viewModel.setHumMode(HumMode.HZ60) }
                 RadioRow("なし", hum == HumMode.NONE) { viewModel.setHumMode(HumMode.NONE) }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            SectionTitle("アプリ")
+            SettingsCard {
+                UpdateHost(
+                    controller = viewModel.updateController,
+                    style = UpdateStyle.SECTION,
+                )
             }
 
             Spacer(Modifier.height(16.dp))

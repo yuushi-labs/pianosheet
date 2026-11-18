@@ -42,6 +42,8 @@ import com.yuushilabs.pianosheet.core.storage.SharedAudioStorage
 import com.yuushilabs.pianosheet.domain.model.NoteSource
 import com.yuushilabs.pianosheet.domain.model.ProjectStatus
 import com.yuushilabs.pianosheet.domain.model.ProjectSummary
+import com.yuushilabs.pianosheet.feature.update.UpdateHost
+import com.yuushilabs.pianosheet.feature.update.UpdateStyle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -73,6 +75,12 @@ fun HomeScreen(
         contract = OpenSharedRecordingDocument(),
     ) { uri ->
         if (uri != null) viewModel.importSharedWav(uri)
+    }
+
+    LaunchedEffect(Unit) {
+        // One quiet look at the latest release per launch (UpdateController
+        // keeps the cool-down and never shows a failure it was not asked for).
+        viewModel.updateController.autoCheck()
     }
 
     LaunchedEffect(message) {
@@ -134,6 +142,11 @@ fun HomeScreen(
             Spacer(Modifier.height(10.dp))
             SharedFolderCard(
                 onImport = { sharedImportLauncher.launch(arrayOf("audio/*")) },
+            )
+            Spacer(Modifier.height(10.dp))
+            UpdateHost(
+                controller = viewModel.updateController,
+                style = UpdateStyle.BANNER,
             )
             Spacer(Modifier.height(20.dp))
             Text(

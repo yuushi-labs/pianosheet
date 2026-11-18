@@ -4,24 +4,36 @@ import android.app.ActivityManager
 import android.content.Context
 import android.util.Log
 import androidx.room.Room
+import com.yuushilabs.pianosheet.BuildConfig
 import com.yuushilabs.pianosheet.core.audio.AudioStorage
 import com.yuushilabs.pianosheet.core.export.ScoreFileExporter
 import com.yuushilabs.pianosheet.core.export.WavExporter
-import com.yuushilabs.pianosheet.core.storage.AndroidSharedMediaGateway
-import com.yuushilabs.pianosheet.core.storage.SharedAudioStorage
 import com.yuushilabs.pianosheet.core.inference.BasicPitchConstants
 import com.yuushilabs.pianosheet.core.inference.BasicPitchDetector
 import com.yuushilabs.pianosheet.core.inference.BasicPitchModel
 import com.yuushilabs.pianosheet.core.inference.PtiFinalEngine
-import com.yuushilabs.pianosheet.core.inference.PtiWindowModel
-import com.yuushilabs.pianosheet.domain.final.EngineUnavailableException
 import com.yuushilabs.pianosheet.core.inference.PtiOnnxModel
+import com.yuushilabs.pianosheet.core.inference.PtiWindowModel
+import com.yuushilabs.pianosheet.core.storage.AndroidSharedMediaGateway
+import com.yuushilabs.pianosheet.core.storage.SharedAudioStorage
+import com.yuushilabs.pianosheet.core.update.HttpApkDownloader
+import com.yuushilabs.pianosheet.core.update.HttpReleaseFetcher
 import com.yuushilabs.pianosheet.data.ProjectRepositoryImpl
 import com.yuushilabs.pianosheet.data.SettingsRepository
 import com.yuushilabs.pianosheet.data.db.AppDatabase
+import com.yuushilabs.pianosheet.data.update.AndroidApkInstaller
+import com.yuushilabs.pianosheet.data.update.DataStoreUpdateMemo
+import com.yuushilabs.pianosheet.data.update.UpdateRepository
+import com.yuushilabs.pianosheet.domain.final.EngineUnavailableException
 import com.yuushilabs.pianosheet.domain.final.FinalTranscriber
 import com.yuushilabs.pianosheet.domain.repository.ProjectRepository
+import com.yuushilabs.pianosheet.feature.update.UpdateController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import java.io.Closeable
+import java.io.File
 
 /**
  * Hand-rolled dependency container: small enough to avoid a DI framework in the
@@ -49,6 +61,31 @@ class AppContainer(context: Context) : Closeable {
     }
 
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
+
+    /**
+     * The in-app updater (0.4.5).  One instance for the process, so a check or a
+     * download keeps going while the user moves between home and settings.
+     * The APK lands in `cache/updates/`, which `res/xml/file_paths.xml` exports
+     * to the installer.
+     */
+    private val updateScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    val updateController: UpdateController by lazy {
+        val userAgent = "PianoSheet-Android/${BuildConfig.VERSION_NAME}"
+        val repository = UpdateRepository(
+            fetcher = HttpReleaseFetcher(userAgent = userAgent),
+            downloader = HttpApkDownloader(userAgent = userAgent),
+            memo = DataStoreUpdateMemo(appContext),
+            apkDirectory = File(appContext.cacheDir, "updates"),
+            currentVersionName = BuildConfig.VERSION_NAME,
+            currentVersionCode = BuildConfig.VERSION_CODE,
+        )
+        UpdateController(
+            repository = repository,
+            installer = AndroidApkInstaller(appContext),
+            scope = updateScope,
+        )
+    }
 
     val audioStorage: AudioStorage by lazy { AudioStorage(appContext) }
 
@@ -136,6 +173,7 @@ class AppContainer(context: Context) : Closeable {
     }
 
     override fun close() {
+        updateScope.cancel()
         try {
             database.close()
         } catch (_: Exception) {
