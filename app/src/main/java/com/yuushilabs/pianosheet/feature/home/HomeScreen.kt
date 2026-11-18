@@ -77,12 +77,6 @@ fun HomeScreen(
         if (uri != null) viewModel.importSharedWav(uri)
     }
 
-    LaunchedEffect(Unit) {
-        // One quiet look at the latest release per launch (UpdateController
-        // keeps the cool-down and never shows a failure it was not asked for).
-        viewModel.updateController.autoCheck()
-    }
-
     LaunchedEffect(message) {
         val text = message ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(text)

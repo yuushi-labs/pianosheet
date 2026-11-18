@@ -3,11 +3,14 @@ package com.yuushilabs.pianosheet
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.yuushilabs.pianosheet.app.AppContainer
 import com.yuushilabs.pianosheet.feature.analyze.AnalyzeScreen
 import com.yuushilabs.pianosheet.feature.home.HomeScreen
 import com.yuushilabs.pianosheet.feature.live.LiveScoreScreen
@@ -17,8 +20,25 @@ import com.yuushilabs.pianosheet.feature.settings.SettingsScreen
 import com.yuushilabs.pianosheet.ui.theme.PianoSheetTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val container: AppContainer
+        get() = (application as PianoSheetApplication).container
+
+    /**
+     * 0.4.7: the release check runs on every launch and every return to the
+     * foreground, so opening the app is enough — no 確認 button and no cool-down.
+     * It lives on the activity (not a screen) because home, settings and the
+     * player all come and go while the updater is shared by the whole process.
+     */
+    private val updateObserver = object : DefaultLifecycleObserver {
+        override fun onResume(owner: LifecycleOwner) {
+            container.updateController.onForeground()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycle.addObserver(updateObserver)
         setContent {
             PianoSheetTheme {
                 PianoSheetApp()

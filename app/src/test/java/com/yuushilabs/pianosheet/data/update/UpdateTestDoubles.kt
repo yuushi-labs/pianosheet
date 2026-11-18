@@ -3,12 +3,16 @@ package com.yuushilabs.pianosheet.data.update
 import com.yuushilabs.pianosheet.core.update.ApkDownloader
 import com.yuushilabs.pianosheet.core.update.ApkInstaller
 import com.yuushilabs.pianosheet.core.update.ReleaseFetcher
+import com.yuushilabs.pianosheet.core.update.ReleaseResponse
 import java.io.File
 
 /**
  * The three test doubles the update flow needs: the GitHub answer, the transfer
  * and what is remembered between launches.  They stand in for the network so
- * 0.4.5's policy runs in a plain JVM test.
+ * the policy runs in a plain JVM test.
+ *
+ * [etag] stands in for the `ETag` GitHub sends with the document: when the
+ * caller already holds it, the fake answers 304 like the real endpoint does.
  */
 class FakeReleaseFetcher(
     private val body: String? = null,
@@ -16,10 +20,21 @@ class FakeReleaseFetcher(
 ) : ReleaseFetcher {
     var calls = 0
 
-    override suspend fun fetchLatest(): Result<String> {
+    /** How many of [calls] were answered with a 304 instead of the document. */
+    var notModifiedCalls = 0
+
+    /** The `ETag` of the document this fake serves; it changes with the body. */
+    val documentEtag: String? get() = body?.let { "\"W/${it.hashCode()}\"" }
+
+    override suspend fun fetchLatest(etag: String?): Result<ReleaseResponse> {
         calls++
         error?.let { return Result.failure(it) }
-        return Result.success(body.orEmpty())
+        val current = documentEtag
+        if (etag != null && etag == current) {
+            notModifiedCalls++
+            return Result.success(ReleaseResponse(body = null, etag = current, notModified = true))
+        }
+        return Result.success(ReleaseResponse(body = body.orEmpty(), etag = current))
     }
 }
 
@@ -49,13 +64,21 @@ class FakeApkDownloader(
 class InMemoryUpdateMemo(
     var checkedAt: Long? = null,
     var skipped: String? = null,
+    var etag: String? = null,
+    var body: String? = null,
 ) : UpdateMemo {
     override suspend fun lastCheckedAt(): Long? = checkedAt
 
+    override suspend fun releaseEtag(): String? = etag
+
+    override suspend fun releaseBody(): String? = body
+
     override suspend fun skippedVersion(): String? = skipped
 
-    override suspend fun recordCheck(at: Long) {
+    override suspend fun recordCheck(at: Long, etag: String?, body: String?) {
         checkedAt = at
+        if (etag != null) this.etag = etag
+        if (body != null) this.body = body
     }
 
     override suspend fun skip(version: String) {

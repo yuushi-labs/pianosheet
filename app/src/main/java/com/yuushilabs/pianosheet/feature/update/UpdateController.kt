@@ -5,6 +5,7 @@ import com.yuushilabs.pianosheet.core.update.ApkInstaller
 import com.yuushilabs.pianosheet.core.update.UpdateInfo
 import com.yuushilabs.pianosheet.data.update.CheckOutcome
 import com.yuushilabs.pianosheet.data.update.UpdateRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,26 +64,57 @@ class UpdateController(
 
     val currentVersionName: String get() = repository.currentVersionName
 
-    private var autoCheckStarted = false
     private var work: Job? = null
 
-    /** Called once when home appears; asks at most once per process and cool-down. */
-    fun autoCheck() {
-        if (autoCheckStarted) return
-        autoCheckStarted = true
-        check(manual = false)
+    /** The download folder has been tidied since the process started. */
+    private var prunedThisLaunch = false
+
+    /**
+     * Called on every launch and every return to the foreground (0.4.7).  Each
+     * one asks GitHub, so opening the app is enough and the 確認 button is only
+     * a fallback: [UpdateRepository] only skips a second check seconds after
+     * the last one.
+     */
+    fun onForeground() {
+        val cleanup = !prunedThisLaunch
+        prunedThisLaunch = true
+        check(manual = false, cleanupFirst = cleanup)
     }
 
     fun checkNow() {
         check(manual = true)
     }
 
-    private fun check(manual: Boolean) {
+    private fun check(manual: Boolean, cleanupFirst: Boolean = false) {
         if (work?.isActive == true) return
         work = scope.launch {
-            _state.value = UpdateUiState.Checking
+            if (cleanupFirst) {
+                // The APK of the version that is now running is still in
+                // cache/updates/ (~190 MB): delete it and older leftovers.
+                try {
+                    repository.pruneStaleApks()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    Log.i(TAG, "update cleanup skipped: ${error.message}")
+                }
+            }
+            // A quiet re-check must not take an offer, a download or the
+            // install button off the screen while the user may be looking at it.
+            val shown = _state.value
+            val keepShown = !manual && when (shown) {
+                is UpdateUiState.Available,
+                is UpdateUiState.Downloading,
+                is UpdateUiState.Ready,
+                -> true
+
+                else -> false
+            }
+            if (!keepShown) _state.value = UpdateUiState.Checking
             val outcome = try {
                 repository.check(manual)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Throwable) {
                 CheckOutcome.Unavailable(error.message ?: "update check failed")
             }
@@ -91,7 +123,7 @@ class UpdateController(
                     UpdateUiState.Available(outcome.info, outcome.skipped)
 
                 CheckOutcome.UpToDate -> UpdateUiState.Latest
-                // An automatic check inside the cool-down changes nothing: keep
+                // A check inside the debounce window changes nothing: keep
                 // whatever the screen already shows instead of flashing a state.
                 CheckOutcome.Throttled -> if (_state.value is UpdateUiState.Checking) {
                     UpdateUiState.Idle
@@ -101,7 +133,11 @@ class UpdateController(
 
                 is CheckOutcome.Unavailable -> {
                     Log.i(TAG, "update check unavailable: ${outcome.reason}")
-                    UpdateUiState.Failed("アップデートを確認できませんでした", manual)
+                    if (keepShown) {
+                        _state.value
+                    } else {
+                        UpdateUiState.Failed("アップデートを確認できませんでした", manual)
+                    }
                 }
             }
         }

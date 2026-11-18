@@ -9,9 +9,27 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
+/**
+ * One answer from the latest-release endpoint.
+ *
+ * [notModified] is the server's way of saying "nothing has changed since the
+ * [etag] you sent": GitHub does not count a 304 against the 60 requests an hour
+ * an unauthenticated client gets, which is what makes a check on every launch
+ * affordable.  [body] is null then.
+ */
+data class ReleaseResponse(
+    val body: String?,
+    val etag: String?,
+    val notModified: Boolean = false,
+)
+
 /** Reads the latest-release document; kept behind an interface so the update flow can be tested. */
 interface ReleaseFetcher {
-    suspend fun fetchLatest(): Result<String>
+    /**
+     * Asks for the newest release.  [etag] makes the request conditional, so an
+     * unchanged release comes back as a 304 instead of the whole document.
+     */
+    suspend fun fetchLatest(etag: String? = null): Result<ReleaseResponse>
 }
 
 /**
@@ -28,7 +46,7 @@ class HttpReleaseFetcher(
     private val readTimeoutMs: Int = 10_000,
 ) : ReleaseFetcher {
 
-    override suspend fun fetchLatest(): Result<String> = withContext(Dispatchers.IO) {
+    override suspend fun fetchLatest(etag: String?): Result<ReleaseResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
@@ -38,32 +56,44 @@ class HttpReleaseFetcher(
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("User-Agent", userAgent)
                 setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+                if (!etag.isNullOrBlank()) setRequestProperty("If-None-Match", etag)
             }
             try {
-                val code = connection.responseCode
-                if (code != HttpURLConnection.HTTP_OK) {
-                    val error = connection.errorStream
-                        ?.bufferedReader(Charsets.UTF_8)
-                        ?.use { it.readText() }
-                        ?.take(200)
-                        .orEmpty()
-                    throw IOException("HTTP $code $error".trim())
-                }
-                connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
-                    val buffer = CharArray(8 * 1024)
-                    val out = StringBuilder()
-                    while (out.length < MAX_RESPONSE_CHARS) {
-                        val read = reader.read(buffer)
-                        if (read < 0) break
-                        out.appendRange(buffer, 0, read)
+                when (val code = connection.responseCode) {
+                    HttpURLConnection.HTTP_NOT_MODIFIED ->
+                        ReleaseResponse(body = null, etag = etag, notModified = true)
+
+                    HttpURLConnection.HTTP_OK -> ReleaseResponse(
+                        body = readBody(connection),
+                        etag = connection.getHeaderField("ETag"),
+                    )
+
+                    else -> {
+                        val error = connection.errorStream
+                            ?.bufferedReader(Charsets.UTF_8)
+                            ?.use { it.readText() }
+                            ?.take(200)
+                            .orEmpty()
+                        throw IOException("HTTP $code $error".trim())
                     }
-                    out.toString()
                 }
             } finally {
                 connection.disconnect()
             }
         }
     }
+
+    private fun readBody(connection: HttpURLConnection): String =
+        connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+            val buffer = CharArray(8 * 1024)
+            val out = StringBuilder()
+            while (out.length < MAX_RESPONSE_CHARS) {
+                val read = reader.read(buffer)
+                if (read < 0) break
+                out.appendRange(buffer, 0, read)
+            }
+            out.toString()
+        }
 
     companion object {
         const val DEFAULT_ENDPOINT = "https://api.github.com/repos/yuushi-labs/pianosheet/releases/latest"

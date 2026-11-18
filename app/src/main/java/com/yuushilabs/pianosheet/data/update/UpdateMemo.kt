@@ -9,15 +9,24 @@ import kotlinx.coroutines.flow.first
 
 /**
  * What the update check remembers between launches: when it last asked GitHub,
- * and which version the user said "後で" to.  Kept behind an interface so the
- * repository's throttling and skip policy can be tested without a device.
+ * the `ETag` and the document of the release it last read (so an unchanged
+ * release can be answered from the 304 without asking again), and which version
+ * the user said "後で" to.  Kept behind an interface so the repository's
+ * throttling and skip policy can be tested without a device.
  */
 interface UpdateMemo {
     suspend fun lastCheckedAt(): Long?
 
+    /** Datastore for the conditional request GitHub answers with 304. */
+    suspend fun releaseEtag(): String?
+
+    /** The release document the [releaseEtag] belongs to. */
+    suspend fun releaseBody(): String?
+
     suspend fun skippedVersion(): String?
 
-    suspend fun recordCheck(at: Long)
+    /** Records this check; [etag] and [body] are kept only when the server sent them. */
+    suspend fun recordCheck(at: Long, etag: String? = null, body: String? = null)
 
     suspend fun skip(version: String)
 
@@ -31,16 +40,28 @@ class DataStoreUpdateMemo(private val context: Context) : UpdateMemo {
     private object Keys {
         val lastCheckedAt = longPreferencesKey("last_checked_at")
         val skippedVersion = stringPreferencesKey("skipped_version")
+        val releaseEtag = stringPreferencesKey("release_etag")
+        val releaseBody = stringPreferencesKey("release_body")
     }
 
     override suspend fun lastCheckedAt(): Long? =
         context.updateDataStore.data.first()[Keys.lastCheckedAt]
 
+    override suspend fun releaseEtag(): String? =
+        context.updateDataStore.data.first()[Keys.releaseEtag]
+
+    override suspend fun releaseBody(): String? =
+        context.updateDataStore.data.first()[Keys.releaseBody]
+
     override suspend fun skippedVersion(): String? =
         context.updateDataStore.data.first()[Keys.skippedVersion]
 
-    override suspend fun recordCheck(at: Long) {
-        context.updateDataStore.edit { it[Keys.lastCheckedAt] = at }
+    override suspend fun recordCheck(at: Long, etag: String?, body: String?) {
+        context.updateDataStore.edit { prefs ->
+            prefs[Keys.lastCheckedAt] = at
+            if (etag != null) prefs[Keys.releaseEtag] = etag
+            if (body != null) prefs[Keys.releaseBody] = body
+        }
     }
 
     override suspend fun skip(version: String) {
