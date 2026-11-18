@@ -11,6 +11,24 @@ android {
     namespace = "com.yuushilabs.pianosheet"
     compileSdk = 34
 
+    // 0.4.5: the in-app updater installs the APK the CI publishes, and Android
+    // only installs a newer APK signed with the *same* key.  A runner-generated
+    // debug key differs on every build, so debug builds sign with the keystore
+    // committed at keystore/pianosheet-debug.keystore (password `android`,
+    // alias `androiddebugkey`).  Without it the default debug key is used and
+    // that build simply cannot update an installed copy.
+    signingConfigs {
+        getByName("debug") {
+            val shared = rootProject.file("keystore/pianosheet-debug.keystore")
+            if (shared.exists()) {
+                storeFile = shared
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.yuushilabs.pianosheet"
         minSdk = 29

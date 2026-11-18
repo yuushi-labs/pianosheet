@@ -66,6 +66,21 @@ JVM のユニットテストで動かないため）。
 - `UpdateRepositoryTest` — クールダウン、「後で」の記憶、失敗の扱い、ダウンロードの再利用
 - `UpdateControllerTest` — 起動時確認は1回、キャンセル、インストール後の再通知抑止
 
+## 署名鍵（更新が入るための前提）
+
+Android は同じ署名鍵の APK しか上書きインストールできない。GitHub Actions の
+ランナーは debug 鍵を毎回作り直す（実行ごとに別の鍵）ため、そのままでは次の版が
+「アプリがインストールされていません」で失敗する。そこで
+`keystore/pianosheet-debug.keystore`（alias `androiddebugkey`、password `android`）を
+リポジトリに置き、`app/build.gradle.kts` の `signingConfigs.debug` がそれを使うようにした。
+CI もローカルも同じ鍵で署名するので、公開済みの APK にそのまま上書きできる。
+
+- 証明書 SHA-256: `5494FEBBA8E143630C69F62D240699A1410447AF5C0EA3ECA48A30BA6EDD30E`（有効期限 2054-04-03）
+- 取り扱いは [keystore/README.md](../keystore/README.md)。作り直すと既存インストールの
+  上に入らなくなるので、鍵は固定のまま使う。
+- リポジトリが Public なので鍵も公開される（第三者が同じ鍵で APK を作れる）。ストア配布へ
+  移るときは非公開鍵に切り替え、その一度だけ入れ直すのがよい。
+
 ## 既知の制限
 
 - APK は debug 署名。debug と release で署名が変わると上書きインストールできないため、

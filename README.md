@@ -167,6 +167,8 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
   サイズと ZIP ヘッダを確認してから、`FileProvider` 経由でシステムインストーラーに渡す。
   初回は「この提供元のアプリを許可」を案内し、戻ったらそのままインストールへ進む。
 - **設定 → アプリ**に現在のバージョンと「アップデートを確認」ボタン（手動確認・即更新）。
+- 署名は `keystore/pianosheet-debug.keystore` に固定（CI とローカルで同じ鍵）。Android は
+  同じ鍵の APK しか上書きインストールできないため、この鍵は作り直さない。
 - `main` へ push すると CI が `v<versionName>` の Release を自動作成するので、次の版からは
   push だけで端末に更新が届く。詳細: [docs/auto-update-0.4.5-report.md](docs/auto-update-0.4.5-report.md)
 
