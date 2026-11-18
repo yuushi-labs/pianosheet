@@ -53,11 +53,17 @@ class SettingsRepository(private val context: Context) {
     }
 }
 
-/** The analysis copy's settings, or null when no cleaning should be applied. */
+/**
+ * The analysis copy's settings, or null when no cleaning should be applied.
+ *
+ * The live path keeps [DenoiseStrength.STANDARD]: that is what 0.4.3 called
+ * "weak" and what it applied while recording, so 0.4.4's milder table does not
+ * make the live staff any noisier than before.
+ */
 fun AnalysisSettings.denoiseConfigForLive(): DenoiseConfig? {
     if (denoiseMode == DenoiseMode.OFF || !applyToLive) return null
     return DenoiseConfig(
-        strength = DenoiseStrength.WEAK,
+        strength = DenoiseStrength.STANDARD,
         notchHz = humHz(),
     )
 }

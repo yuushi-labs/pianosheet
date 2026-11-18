@@ -111,7 +111,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("ライブ表示にも適用", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "録音中の表示に使う音にも同じ処理をします（弱で適用）。",
+                            "録音中の表示に使う音にも同じ処理をします（標準で適用）。",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
