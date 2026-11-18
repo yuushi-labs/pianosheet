@@ -22,6 +22,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 | Phase 2.4: PianoVAM 定量評価・採譜/楽譜品質の改善（`0.3.1-phase2`） | **実装済み** — [docs/phase2-4-pianovam-report.md](docs/phase2-4-pianovam-report.md) |
 | Phase 3: ピアノ専用モデル PTI-ONNX の組み込み（`0.4.0-phase2`） | **実装済み** — [docs/phase3-pti-report.md](docs/phase3-pti-report.md) |
 | Phase 3.1: 録音・書き出しの共有フォルダ保存と再インポート（`0.4.1-phase2`） | **実装済み** — [docs/shared-storage-report.md](docs/shared-storage-report.md) |
+| Phase 3.2: 楽譜の先頭の無音除去と弱起/裏拍対応（`0.4.3-phase2`） | **実装済み** — [docs/score-start-report.md](docs/score-start-report.md) |
 | Phase 4 以降（編集・Undo/Redo・PDF） | 未着手 |
 
 ### Phase 0 の要点
@@ -133,6 +134,17 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
   詳細画面から書き直せる。
 - **テスト**: `SharedAudioStorageTest` 19件（ファイル名・フルパス・2段フォールバック・失敗時に録音が残ること・
   書き出し・SAF 取り込み・WAV 判定）。詳細は [docs/shared-storage-report.md](docs/shared-storage-report.md)。
+
+### 楽譜の先頭の扱い（0.4.3）
+
+- **録音開始〜最初の音までの無音は楽譜に出ない**: `core/dsp/SilenceHead` が録音自身の大きさに合わせて「鳴り始め」を測り、
+  `ScoreBuilder` はその 0.15 s より前の音符（モデルが無音を音符として報告したもの）を落とす。
+  演奏前のタップのような孤立した物音も、4 拍以上の間が空いていれば落ちる（`trimLeadingNoise`）。
+- **最初の音が beat 0**: 先頭の小節は必ず最初の音から始まる。弱起は「最初の音から最初の強拍まで」の長さの小節として
+  `implicit="yes"` で書き出し、そのあとに空の小節が入ることはない。
+- **裏拍・アウフタクト**: 8分の裏から始まる演奏は半拍の弱起小節、4拍目から始まる演奏は 1 拍の弱起小節になる。
+- **ライブ楽譜**も録音開始ではなく最初の音を左端に描く。
+- 詳細と検証: [docs/score-start-report.md](docs/score-start-report.md)
 
 ### Phase 2 の既知の制限
 

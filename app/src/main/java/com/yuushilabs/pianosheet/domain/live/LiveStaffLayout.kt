@@ -69,13 +69,18 @@ object LiveStaffLayoutEngine {
         )
         val xs = FloatArray(count)
         val originX = leftPad + headerWidth
+        // The staff starts at the first note, not at the moment the recording
+        // started: waiting five seconds before playing used to leave that wait
+        // drawn as empty staff at the head of the live score.
+        val firstOnsetMs = notes[order.first()].onsetMs
         var previousGroupOnset = -1.0
         var groupX = originX
         var lastX = originX
         for (slot in order.indices) {
             val note = notes[order[slot]]
             val onset = note.onsetMs
-            val timeX = originX + (onset / 1000.0).toFloat() * pixelsPerSecond
+            val sinceFirst = ((onset - firstOnsetMs) / 1000.0).toFloat().coerceAtLeast(0f)
+            val timeX = originX + sinceFirst * pixelsPerSecond
             if (previousGroupOnset < 0.0 || onset - previousGroupOnset > GROUP_EPSILON_MS) {
                 groupX = max(timeX, groupX + if (previousGroupOnset < 0.0) 0f else minGap)
                 previousGroupOnset = onset

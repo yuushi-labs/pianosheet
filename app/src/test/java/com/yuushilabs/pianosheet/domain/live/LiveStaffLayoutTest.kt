@@ -130,4 +130,25 @@ class LiveStaffLayoutTest {
         assertTrue(layout.xs[1] < layout.xs[2])
         assertTrue(layout.xs[2] < layout.xs[0])
     }
+
+    @Test
+    fun `the staff starts at the first note, not at the recording start`() {
+        // Five seconds of waiting after pressing record used to be drawn as empty
+        // staff at the head of the live score.
+        val notes = listOf(note(0, 5000.0), note(1, 5500.0), note(2, 6000.0))
+        val layout = LiveStaffLayoutEngine.compute(
+            notes = notes,
+            viewportWidth = viewport,
+            headerWidth = 0f,
+            leftPad = 18f,
+            minGap = minGap,
+        )
+        assertEquals("the first note is at the head of the staff", 18f, layout.xs[0], 1e-3f)
+        assertEquals(
+            "the wait does not change the spacing",
+            64f * 0.5f,
+            layout.xs[2] - layout.xs[1],
+            1e-2f,
+        )
+    }
 }

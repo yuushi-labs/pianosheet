@@ -6,6 +6,7 @@ import com.yuushilabs.pianosheet.core.dsp.DenoiseConfig
 import com.yuushilabs.pianosheet.core.dsp.DenoiseStrength
 import com.yuushilabs.pianosheet.core.dsp.Denoiser
 import com.yuushilabs.pianosheet.core.dsp.MainsHumDetector
+import com.yuushilabs.pianosheet.core.dsp.SilenceHead
 import com.yuushilabs.pianosheet.core.dsp.StartupGuard
 import com.yuushilabs.pianosheet.core.inference.HarmonicRealnessFilter
 import com.yuushilabs.pianosheet.domain.live.ChunkDetector
@@ -292,6 +293,9 @@ class FinalTranscriber(
                 quantization = options.quantization,
                 minTempoBpm = options.minTempoBpm,
                 maxTempoBpm = options.maxTempoBpm,
+                // Measured on the untouched take: the denoiser can lift a silent
+                // lead into something the level test would hear.
+                soundStartSec = SilenceHead.firstSoundSec(resampled, targetSampleRate),
             ),
             detector = engineId,
             liveMatched = correlation.matched,
