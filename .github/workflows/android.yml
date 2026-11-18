@@ -73,7 +73,7 @@ jobs:
           tag="v${version_name}"
           apk="pianosheet-${version_name}-debug.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
-          previous_tag="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
+          previous_tag="$(git tag --list 'v*' --sort=-creatordate | grep -v -x "$tag" | head -n 1)"
           if test -n "$previous_tag"; then
             changes="$(git log --pretty='- %s' "${previous_tag}..HEAD" | head -n 12)"
           else
