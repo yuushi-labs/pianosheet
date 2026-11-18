@@ -50,6 +50,20 @@ object DenoiseMath {
         }
     }
 
+    /**
+     * The same subtraction with a per-bin factor and floor, which is how the high
+     * band is weighted ([DenoiseConfig.oversubtractionByBin], [DenoiseConfig.floorByBin]).
+     */
+    fun subtractGains(
+        magnitude: DoubleArray,
+        noise: DoubleArray,
+        oversubtraction: DoubleArray,
+        floor: DoubleArray,
+    ): DoubleArray = DoubleArray(magnitude.size) { i ->
+        val gain = 1.0 - oversubtraction[i] * noise[i] / (magnitude[i] + 1e-12)
+        gain.coerceIn(floor[i], 1.0)
+    }
+
     /** 3-bin moving average over frequency, killing isolated musical-noise spikes. */
     fun smooth3(gains: DoubleArray): DoubleArray {
         if (gains.size < 3) return gains.copyOf()

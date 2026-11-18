@@ -19,6 +19,8 @@ class StreamingDenoiser(private val config: DenoiseConfig = DenoiseConfig()) {
     private val window = Fft.periodicHann(config.frameSize)
     private val windowSquared = DoubleArray(config.frameSize) { window[it] * window[it] }
     private val subtractMask = config.subtractMask()
+    private val oversubtraction = config.oversubtractionByBin()
+    private val floor = config.floorByBin()
     private val envFloor = 1e-3 * 1.5
 
     private val frontFilters: MutableList<Biquad> = ArrayList(2)
@@ -126,7 +128,7 @@ class StreamingDenoiser(private val config: DenoiseConfig = DenoiseConfig()) {
                 }
             }
         }
-        val target = DenoiseMath.subtractGains(magnitude, noise, params)
+        val target = DenoiseMath.subtractGains(magnitude, noise, oversubtraction, floor)
         val smoothed = DoubleArray(config.nBins) { bin ->
             params.gainSmoothing * previousGains[bin] + (1.0 - params.gainSmoothing) * target[bin]
         }

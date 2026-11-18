@@ -167,8 +167,11 @@ class TestDenoiser(unittest.TestCase):
         for strength in ("weak", "standard", "strong"):
             y, stats = Denoiser(DenoiseConfig(strength=strength)).process_with_stats(x)
             levels[strength] = stats.output_rms_db - stats.input_rms_db
+        # 0.4.4 made every step milder ("今の弱を標準にするぐらい"), so the gaps
+        # between neighbours are smaller than they were; what still has to hold
+        # is that each step takes more noise than the one below it.
         self.assertLess(levels["weak"], -3.0)
-        self.assertLess(levels["standard"], levels["weak"] - 3.0)
+        self.assertLess(levels["standard"], levels["weak"] - 2.5)
         self.assertLess(levels["strong"], levels["standard"] - 4.0)
 
     def test_decaying_note_is_preserved_under_noise(self):

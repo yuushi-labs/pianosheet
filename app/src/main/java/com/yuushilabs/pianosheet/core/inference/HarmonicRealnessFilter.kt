@@ -58,9 +58,25 @@ object HarmonicRealnessFilter {
         /**
          * Intervals below the note that can own one of its spectral lines.  24 and
          * 36 are the 4th and 8th partial (Basic Pitch's ghost); 12 is the 2nd
-         * partial, which is what PTI doubles an octave up on a noisy take.
+         * partial, which is what PTI doubles an octave up on a noisy take, and 19
+         * is the 3rd partial (a 12th, and the other line such a take doubles).
          */
         val ownerIntervals: List<Int> = listOf(24, 36),
+        /**
+         * A pure line is also a ghost when the spectrum itself carries the lower
+         * note, even if the model did not report it: energy at f0/2 or f0/4 that
+         * is at least this share of the line at f0 means the line *is* that lower
+         * note's 2nd or 4th partial.  A real note struck alone has nothing below
+         * it, so this costs nothing there.
+         *
+         * Why it is needed: a sustained line (a pedalled note, a room or speaker
+         * resonance around 1.2 kHz) makes the model emit high notes whose lower
+         * owner it never reports, and the pure-line test plus the owner test both
+         * keep them.  On the user's 40 s take this rule removes 44 of the 85 notes
+         * at C6 and above; on PianoVAM's six excerpts it removes no real note
+         * (micro F1 0.9566 → 0.9559, three notes).
+         */
+        val spectralOwnerRatio: Double = 0.0,
     )
 
     /**
@@ -73,11 +89,12 @@ object HarmonicRealnessFilter {
      * high note.
      */
     val PTI = Settings(
-        registerGate = 84,
+        registerGate = 72,
         maxSecondPartialRatio = 0.05,
         maxThirdPartialRatio = 0.015,
         ownerSpanMs = 60.0,
-        ownerIntervals = listOf(12, 24, 36),
+        ownerIntervals = listOf(12, 19, 24, 36),
+        spectralOwnerRatio = 0.25,
     )
 
     /** What the spectrum says about one note: linear magnitudes, and their ratios. */
@@ -85,9 +102,14 @@ object HarmonicRealnessFilter {
         val fundamental: Double,
         val secondPartial: Double,
         val thirdPartial: Double,
+        /** Magnitudes an octave and two octaves below the note (the possible owners). */
+        val halfFundamental: Double = 0.0,
+        val quarterFundamental: Double = 0.0,
     ) {
         val secondRatio: Double get() = if (fundamental > 0.0) secondPartial / fundamental else 0.0
         val thirdRatio: Double get() = if (fundamental > 0.0) thirdPartial / fundamental else 0.0
+        val halfRatio: Double get() = if (fundamental > 0.0) halfFundamental / fundamental else 0.0
+        val quarterRatio: Double get() = if (fundamental > 0.0) quarterFundamental / fundamental else 0.0
     }
 
     data class Result(
@@ -136,7 +158,7 @@ object HarmonicRealnessFilter {
             }
         }
 
-        val peaks = Array(targets.size) { DoubleArray(3) }
+        val peaks = Array(targets.size) { DoubleArray(5) }
         val window = Fft.periodicHann(frameSize)
         val frame = DoubleArray(frameSize)
         val re = DoubleArray(frameSize)
@@ -159,13 +181,17 @@ object HarmonicRealnessFilter {
                 peak[0] = max(peak[0], bandMax(magnitude, bands.bandOf(pitch, 1, f0, settings, binHz, nBins)))
                 peak[1] = max(peak[1], bandMax(magnitude, bands.bandOf(pitch, 2, f0, settings, binHz, nBins)))
                 peak[2] = max(peak[2], bandMax(magnitude, bands.bandOf(pitch, 3, f0, settings, binHz, nBins)))
+                if (settings.spectralOwnerRatio > 0.0) {
+                    peak[3] = max(peak[3], bandMax(magnitude, bands.bandOf(pitch, 4, f0, settings, binHz, nBins)))
+                    peak[4] = max(peak[4], bandMax(magnitude, bands.bandOf(pitch, 5, f0, settings, binHz, nBins)))
+                }
             }
         }
 
         val evidence = arrayOfNulls<Evidence>(notes.size)
         for ((position, target) in targets.withIndex()) {
             val peak = peaks[position]
-            evidence[target.index] = Evidence(peak[0], peak[1], peak[2])
+            evidence[target.index] = Evidence(peak[0], peak[1], peak[2], peak[3], peak[4])
         }
 
         val dropped = ArrayList<NoteEvent>()
@@ -181,7 +207,9 @@ object HarmonicRealnessFilter {
             if (ev.secondRatio < settings.maxSecondPartialRatio &&
                 ev.thirdRatio < settings.maxThirdPartialRatio
             ) {
-                if (settings.requireOwnerNote && !hasOwner(note, byPitch, settings.ownerSpanMs, settings.ownerIntervals)) {
+                val owned = hasOwner(note, byPitch, settings.ownerSpanMs, settings.ownerIntervals) ||
+                    hasSpectralOwner(ev, settings)
+                if (settings.requireOwnerNote && !owned) {
                     kept.add(note)
                     continue
                 }
@@ -193,6 +221,13 @@ object HarmonicRealnessFilter {
         }
         kept.forEachIndexed { position, note -> note.sequence = position }
         return Result(kept, dropped, targets.size, droppedEvidence)
+    }
+
+    /** True when the spectrum itself carries the note's 2nd/4th-partial owner below it. */
+    private fun hasSpectralOwner(evidence: Evidence, settings: Settings): Boolean {
+        if (settings.spectralOwnerRatio <= 0.0) return false
+        return evidence.halfRatio >= settings.spectralOwnerRatio ||
+            evidence.quarterRatio >= settings.spectralOwnerRatio
     }
 
     /** True when a key at [octaveSpan] octaves below starts with this note. */
@@ -259,17 +294,26 @@ object HarmonicRealnessFilter {
 
     private fun frequencyOf(pitchMidi: Int): Double = 440.0 * 2.0.pow((pitchMidi - 69) / 12.0)
 
-    /** Band ranges are cached per (pitch, partial): they do not depend on the frame. */
+    /** Band ranges are cached per (pitch, slot): they do not depend on the frame. */
     private fun HashMap<Long, IntRange>.bandOf(
         pitchMidi: Int,
-        partial: Int,
+        slot: Int,
         f0: Double,
         settings: Settings,
         binHz: Double,
         nBins: Int,
     ): IntRange {
-        val key = pitchMidi.toLong() * 8L + partial
-        return getOrPut(key) { band(partial * f0, settings.bandTolerance, binHz, nBins) }
+        val key = pitchMidi.toLong() * 8L + slot
+        return getOrPut(key) { band(partialOf(slot) * f0, settings.bandTolerance, binHz, nBins) }
+    }
+
+    /** Slot 1..3 are the note's own partials; 4 and 5 are the candidates below it. */
+    private fun partialOf(slot: Int): Double = when (slot) {
+        1 -> 1.0
+        2 -> 2.0
+        3 -> 3.0
+        4 -> 0.5
+        else -> 0.25
     }
     private fun frameOf(timeS: Double, sampleRate: Int, hop: Int): Int =
         floor(timeS * sampleRate / hop).toInt()

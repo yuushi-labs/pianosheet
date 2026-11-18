@@ -50,6 +50,60 @@ class DenoiserTest {
     }
 
     @Test
+    fun `the presets get louder in strength and start from the old weak setting`() {
+        // 0.4.4: 0.4.3's "weak" became the default, and the whole table moved one
+        // step milder (the user: "今の弱を標準にするぐらい").
+        assertEquals(0.70, DenoiseStrength.STANDARD.oversubtraction, 1e-9)
+        assertEquals(-8.0, DenoiseStrength.STANDARD.floorDb, 1e-9)
+        assertEquals(0.60, DenoiseStrength.STANDARD.gainSmoothing, 1e-9)
+        assertTrue(DenoiseStrength.WEAK.oversubtraction < DenoiseStrength.STANDARD.oversubtraction)
+        assertTrue(DenoiseStrength.STANDARD.oversubtraction < DenoiseStrength.STRONG.oversubtraction)
+        assertTrue(DenoiseStrength.STRONG.floorDb < DenoiseStrength.STANDARD.floorDb)
+    }
+
+    @Test
+    fun `the high band is cleaned harder than the body of the piano`() {
+        val random = Random(11)
+        val input = FloatArray(22050) { (random.nextDouble() * 0.06 - 0.03).toFloat() }
+        val output = Denoiser(DenoiseConfig(strength = DenoiseStrength.STANDARD)).process(input)
+
+        fun bandDb(samples: FloatArray, from: Double, to: Double): Double {
+            val n = 4096
+            val window = DoubleArray(n) { 0.5 - 0.5 * kotlin.math.cos(2.0 * PI * it / n) }
+            var sum = 0.0
+            var frames = 0
+            var start = 500
+            while (start + n <= samples.size) {
+                val frame = DoubleArray(n) { i -> samples[start + i] * window[i] }
+                val (re, im) = Fft.rfft(frame, n)
+                val binHz = 22050.0 / n
+                for (bin in 0 until n / 2) {
+                    val hz = bin * binHz
+                    if (hz >= from && hz < to) sum += re[bin] * re[bin] + im[bin] * im[bin]
+                }
+                frames += 1
+                start += n
+            }
+            return 10.0 * kotlin.math.log10(sum / frames / n + 1e-20)
+        }
+
+        val bodyDrop = bandDb(input, 300.0, 600.0) - bandDb(output, 300.0, 600.0)
+        val highDrop = bandDb(input, 2000.0, 4000.0) - bandDb(output, 2000.0, 4000.0)
+        assertTrue(
+            "the high band should lose at least 1.5 dB more: body $bodyDrop dB, high $highDrop dB",
+            highDrop > bodyDrop + 1.5,
+        )
+    }
+
+    @Test
+    fun `a tone above the keyboard is notched deeper than a note would be`() {
+        // 0.4.4: -26 dB over ±3 bins, for the ~1.25 kHz line a room or a speaker
+        // leaves in a take.
+        assertEquals(-26.0, DenoiseConfig().toneNotchGainDb, 1e-9)
+        assertEquals(3, DenoiseConfig().toneNotchHalfWidthBins)
+    }
+
+    @Test
     fun `mains hum detection picks 50 Hz only when it is there`() {
         val sr = 22050
         val withHum = FloatArray(sr) { i ->

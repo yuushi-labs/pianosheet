@@ -17,6 +17,8 @@ class Denoiser(private val config: DenoiseConfig = DenoiseConfig()) {
 
     private val window = Fft.periodicHann(config.frameSize)
     private val subtractMask = config.subtractMask()
+    private val oversubtraction = config.oversubtractionByBin()
+    private val floor = config.floorByBin()
 
     /** Stationary tones removed from the last processed take (diagnostics). */
     var lastToneNotchesHz: List<Double> = emptyList()
@@ -76,7 +78,7 @@ class Denoiser(private val config: DenoiseConfig = DenoiseConfig()) {
                 sqrt(specRe[bin] * specRe[bin] + specIm[bin] * specIm[bin])
             }
             val noise = DenoiseMath.spectralFloor(magnitude)
-            val target = DenoiseMath.subtractGains(magnitude, noise, params)
+            val target = DenoiseMath.subtractGains(magnitude, noise, oversubtraction, floor)
             val smoothed = DoubleArray(config.nBins) { bin ->
                 params.gainSmoothing * previousGains[bin] + (1.0 - params.gainSmoothing) * target[bin]
             }

@@ -194,6 +194,42 @@ class HarmonicRealnessFilterTest {
     }
 
     @Test
+    fun `a pure line whose owner the model missed is still removed`() {
+        // 0.4.4: the 40 s take carried a sustained line at 1.25 kHz that the model
+        // reported as D#6 while it never reported the lower D#5 that owns the
+        // partial.  The spectrum itself says the owner is there, so the line goes
+        // even without a note at -12 semitones.
+        val audio = tone(72, partials = listOf(1 to 1.0, 2 to 0.5, 3 to 0.2), amplitude = 0.5)
+        val notes = listOf(note(84))
+
+        val result = HarmonicRealnessFilter.apply(notes, audio, HarmonicRealnessFilter.PTI)
+
+        assertEquals(listOf(84), result.dropped.map { it.pitchMidi })
+        assertTrue("the line has no partials of its own: ${result.droppedEvidence}", result.droppedEvidence.single().secondRatio < 0.05)
+    }
+
+    @Test
+    fun `a real high note with nothing below it is kept by the spectral test`() {
+        // A struck C6 that carries no partials of its own and no lower key: the
+        // take simply has nothing at 523 Hz or 261 Hz, so the spectral owner test
+        // must not fire.
+        val audio = tone(84, partials = listOf(1 to 1.0), amplitude = 0.3)
+        val result = HarmonicRealnessFilter.apply(listOf(note(84)), audio, HarmonicRealnessFilter.PTI)
+
+        assertTrue("a lone high key strike must survive: ${result.dropped.size} dropped", result.dropped.isEmpty())
+    }
+
+    @Test
+    fun `the PTI preset now examines the C5 to B5 register`() {
+        // C5 (MIDI 72) is inside the PTI gate since 0.4.4: the octave ghosts of the
+        // user's takes sat at C5-B5 as often as at C6 and above.
+        val audio = tone(72, partials = listOf(1 to 1.0), amplitude = 0.3)
+        val result = HarmonicRealnessFilter.apply(listOf(note(72)), audio, HarmonicRealnessFilter.PTI)
+
+        assertEquals(1, result.examined)
+    }
+
+    @Test
     fun `the octave test belongs to the PTI preset only`() {
         // Basic Pitch's v1.4 settings look only 2 and 3 octaves down, so the same
         // octave line stays: the two engines have different failure modes and are

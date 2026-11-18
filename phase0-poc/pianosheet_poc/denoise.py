@@ -70,17 +70,30 @@ class SubtractiveParams:
 
 
 # Stationary-tone suppression depth (mirrors DenoiseConfig.toneNotchGainDb).
-TONE_NOTCH_GAIN_DB = -18.0
+# 0.4.4: -18 -> -26 dB; a 1.25 kHz room/speaker resonance left enough of a line
+# at -18 dB for PTI to keep reporting it as D#6.
+TONE_NOTCH_GAIN_DB = -26.0
 TONE_NOTCH_GAIN = 10.0 ** (TONE_NOTCH_GAIN_DB / 20.0)
 
 PRESETS: Dict[str, SubtractiveParams] = {
+    # 0.4.4 moved the whole table one step milder: the user compared the three
+    # settings on his phone and 0.4.3's "weak" caught the playing best, so that is
+    # the new default and 0.4.3's "standard" is the new "strong".
     # gentle: only the clearly-stationary part of the floor is removed
-    "weak": SubtractiveParams(oversubtraction=0.7, floor_db=-8.0, gain_smoothing=0.60),
-    # default: takes a hiss / fan down noticeably, tails stay
-    "standard": SubtractiveParams(oversubtraction=1.4, floor_db=-14.0, gain_smoothing=0.50),
-    # aggressive: included to measure where it starts to hurt (weak notes, tails)
-    "strong": SubtractiveParams(oversubtraction=3.0, floor_db=-24.0, gain_smoothing=0.45),
+    "weak": SubtractiveParams(oversubtraction=0.45, floor_db=-5.0, gain_smoothing=0.65),
+    # default: the 0.4.3 "weak" setting
+    "standard": SubtractiveParams(oversubtraction=0.70, floor_db=-8.0, gain_smoothing=0.60),
+    # 0.4.3's "standard": noticeably stronger, still keeps decays
+    "strong": SubtractiveParams(oversubtraction=1.40, floor_db=-14.0, gain_smoothing=0.50),
 }
+
+# The high band is taken back out of that gentleness (mirrors
+# DenoiseConfig.highBand*): above 1.2 kHz the preset's factor grows to
+# HIGH_BAND_BOOST times by 1.8 kHz and the floor drops HIGH_BAND_FLOOR_DB dB.
+HIGH_BAND_FROM_HZ = 1200.0
+HIGH_BAND_FULL_HZ = 1800.0
+HIGH_BAND_BOOST = 2.0
+HIGH_BAND_FLOOR_DB = 4.0
 
 
 @dataclass(frozen=True)
@@ -230,6 +243,14 @@ def subtract_gains(magnitude: np.ndarray, noise: np.ndarray, params: Subtractive
     """Per-bin gain for one frame: 1 - alpha*N/M, floored and capped."""
     floor = 10.0 ** (params.floor_db / 20.0)
     gain = 1.0 - params.oversubtraction * noise / (magnitude + 1e-12)
+    return np.clip(gain, floor, 1.0)
+
+
+def subtract_gains_band(
+    magnitude: np.ndarray, noise: np.ndarray, oversubtraction: np.ndarray, floor: np.ndarray
+) -> np.ndarray:
+    """The same subtraction with a per-bin factor and floor (the high-band weight)."""
+    gain = 1.0 - oversubtraction * noise / (magnitude + 1e-12)
     return np.clip(gain, floor, 1.0)
 
 
@@ -450,10 +471,18 @@ class Denoiser:
         mag = np.abs(spec)
         noise = track_noise_floors(mag)
         params = cfg.params
+        freqs = np.fft.rfftfreq(cfg.frame_size, 1.0 / cfg.sample_rate)
+        ramp = np.clip(
+            (freqs - HIGH_BAND_FROM_HZ) / (HIGH_BAND_FULL_HZ - HIGH_BAND_FROM_HZ), 0.0, 1.0
+        )
+        alpha = params.oversubtraction * (1.0 + (HIGH_BAND_BOOST - 1.0) * ramp)
+        floor = 10.0 ** ((params.floor_db - HIGH_BAND_FLOOR_DB * ramp) / 20.0)
         gains = np.empty_like(mag)
         g = self._g_prev
         for i in range(mag.shape[0]):
-            g = params.gain_smoothing * g + (1.0 - params.gain_smoothing) * subtract_gains(mag[i], noise[i], params)
+            g = params.gain_smoothing * g + (1.0 - params.gain_smoothing) * subtract_gains_band(
+                mag[i], noise[i], alpha, floor
+            )
             gains[i] = np.where(self._subtract_mask, _smooth3(np.clip(g, 0.0, 1.0)), 1.0)
             if tone_mask is not None:
                 gains[i] = np.where(tone_mask, np.minimum(gains[i], TONE_NOTCH_GAIN), gains[i])

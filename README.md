@@ -23,6 +23,7 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 | Phase 3: ピアノ専用モデル PTI-ONNX の組み込み（`0.4.0-phase2`） | **実装済み** — [docs/phase3-pti-report.md](docs/phase3-pti-report.md) |
 | Phase 3.1: 録音・書き出しの共有フォルダ保存と再インポート（`0.4.1-phase2`） | **実装済み** — [docs/shared-storage-report.md](docs/shared-storage-report.md) |
 | Phase 3.2: 楽譜の先頭の無音除去と弱起/裏拍対応（`0.4.3-phase2`） | **実装済み** — [docs/score-start-report.md](docs/score-start-report.md) |
+| Phase 3.3: ノイズ除去のマイルド化と高音ノイズ対策（`0.4.4-phase2`） | **実装済み** — [docs/denoise-0.4.4-report.md](docs/denoise-0.4.4-report.md) |
 | Phase 4 以降（編集・Undo/Redo・PDF） | 未着手 |
 
 ### Phase 0 の要点
@@ -145,6 +146,17 @@ Android専用のピアノ音声リアルタイム採譜・楽譜生成アプリ�
 - **裏拍・アウフタクト**: 8分の裏から始まる演奏は半拍の弱起小節、4拍目から始まる演奏は 1 拍の弱起小節になる。
 - **ライブ楽譜**も録音開始ではなく最初の音を左端に描く。
 - 詳細と検証: [docs/score-start-report.md](docs/score-start-report.md)
+
+### ノイズ除去の強さ（`0.4.4-phase2`）
+
+- 実機で録った4本を比べた結果、0.4.3 の「弱」が一番演奏を正確に捉えていたため、
+  **0.4.3 の「弱」が新しい「標準」**（既定）。全体を1段マイルドにした。
+- マイルドにしたぶん、高音ノイズが出る **1.2 kHz 以上だけは今までどおり強く** 削る
+  （`DenoiseConfig.highBandBoost`）。
+- 残っていた高音の誤検出（オクターブゴースト・共振の線）は
+  `HarmonicRealnessFilter.PTI` が **C5 以上**で、しかも**下の帯域のエネルギーから**
+  判定して落とす。40 s の録音で C6 以上のノートが 85 → 41。
+- 詳細と検証: [docs/denoise-0.4.4-report.md](docs/denoise-0.4.4-report.md)
 
 ### Phase 2 の既知の制限
 
