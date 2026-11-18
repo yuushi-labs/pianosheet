@@ -43,7 +43,7 @@ class PtiOnnxTranscriber(
     ): Result {
         val stitched = stitch(audio, shouldCancel, onProgress)
         return Result(
-            notes = postProcessor.decode(stitched),
+            notes = postProcessor.decode(stitched, audio),
             chunkCount = chunkCount(audio.size),
             frameCount = stitched.frameCount,
             sampleRate = SAMPLE_RATE,
